@@ -41,11 +41,10 @@ export async function POST(request: NextRequest) {
     console.log('[Step 3/5] Searching with Tavily...');
     const searchPromises = searchQueries.map((query) =>
       tavily
-        .search({
-          query: `${query} gofundme OR givesendgo OR fundly crowdfunding`,
+        .search(`${query} gofundme OR givesendgo OR fundly crowdfunding`, {
           searchDepth: 'advanced',
           maxResults: 10,
-          includeRawContent: true,
+          includeRawContent: 'text',
         })
         .catch((error) => {
           console.error(`Search failed for query "${query}":`, error);
