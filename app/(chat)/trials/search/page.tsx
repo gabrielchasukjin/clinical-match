@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -14,17 +14,9 @@ export default function TrialSearchPage() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const hasSearchedRef = useRef(false);
 
-  // Auto-populate and search when query parameter is present
-  useEffect(() => {
-    if (queryParam && queryParam.trim()) {
-      setDescription(queryParam);
-      // Auto-execute search
-      executeSearch(queryParam);
-    }
-  }, [queryParam]);
-
-  async function executeSearch(searchText: string) {
+  const executeSearch = useCallback(async (searchText: string) => {
     if (!searchText.trim()) return;
 
     setLoading(true);
@@ -51,9 +43,19 @@ export default function TrialSearchPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  // Auto-populate and search when query parameter is present
+  useEffect(() => {
+    if (queryParam && queryParam.trim() && !hasSearchedRef.current) {
+      hasSearchedRef.current = true;
+      setDescription(queryParam);
+      executeSearch(queryParam);
+    }
+  }, [queryParam, executeSearch]);
 
   async function handleSearch() {
+    hasSearchedRef.current = true;
     executeSearch(description);
   }
 
