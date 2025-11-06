@@ -35,7 +35,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
               className="flex flex-row gap-3 items-center"
             >
               <span className="text-lg font-semibold px-2 hover:bg-muted rounded-md cursor-pointer">
-                Chatbot
+                Clinical Match
               </span>
             </Link>
             <Tooltip>
@@ -56,6 +56,36 @@ export function AppSidebar({ user }: { user: User | undefined }) {
               <TooltipContent align="end">New Chat</TooltipContent>
             </Tooltip>
           </div>
+        </SidebarMenu>
+        <SidebarMenu className="mt-4">
+          <Link
+            href="/trials/search"
+            onClick={() => {
+              setOpenMobile(false);
+            }}
+            className="w-full"
+          >
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2 text-sm"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+              Find Patients
+            </Button>
+          </Link>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>

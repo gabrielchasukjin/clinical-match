@@ -20,24 +20,24 @@ function PureSuggestedActions({
 }: SuggestedActionsProps) {
   const suggestedActions = [
     {
-      title: 'What are the advantages',
-      label: 'of using Next.js?',
-      action: 'What are the advantages of using Next.js?',
+      title: 'Find patients with',
+      label: 'Type 2 Diabetes in Boston',
+      action: 'Find female patients over 50 with Type 2 Diabetes in Boston area',
     },
     {
-      title: 'Write code to',
-      label: `demonstrate djikstra's algorithm`,
-      action: `Write code to demonstrate djikstra's algorithm`,
+      title: 'Search for',
+      label: 'cancer patients needing treatment',
+      action: 'Search for breast cancer patients age 40-65 seeking fundraising help',
     },
     {
-      title: 'Help me write an essay',
-      label: `about silicon valley`,
-      action: `Help me write an essay about silicon valley`,
+      title: 'Look for patients with',
+      label: 'heart disease in California',
+      action: 'Look for male patients with heart disease or cardiovascular conditions in California',
     },
     {
-      title: 'What is the weather',
-      label: 'in San Francisco?',
-      action: 'What is the weather in San Francisco?',
+      title: 'Find patients needing',
+      label: 'diabetes treatment funding',
+      action: 'Find patients with diabetes who need help funding their treatment',
     },
   ];
 
