@@ -42,10 +42,9 @@ export async function POST(request: NextRequest) {
     const searchPromises = searchQueries.map((query) =>
       tavily
         .search({
-          query,
+          query: `${query} gofundme OR givesendgo OR fundly crowdfunding`,
           searchDepth: 'advanced',
           maxResults: 10,
-          includeDomains: CROWDFUNDING_DOMAINS,
           includeRawContent: true,
         })
         .catch((error) => {
