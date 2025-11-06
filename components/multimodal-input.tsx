@@ -15,6 +15,7 @@ import {
 } from 'react';
 import { toast } from 'sonner';
 import { useLocalStorage, useWindowSize } from 'usehooks-ts';
+import { useRouter } from 'next/navigation';
 
 import { ArrowUpIcon, PaperclipIcon, StopIcon } from './icons';
 import { PreviewAttachment } from './preview-attachment';
@@ -56,6 +57,7 @@ function PureMultimodalInput({
   className?: string;
   selectedVisibilityType: VisibilityType;
 }) {
+  const router = useRouter();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
 
@@ -111,7 +113,7 @@ function PureMultimodalInput({
   const submitForm = useCallback(() => {
     // If this is a new chat (no messages), redirect to trial search page
     if (messages.length === 0 && input.trim()) {
-      window.location.href = `/trials/search?q=${encodeURIComponent(input.trim())}`;
+      router.push(`/trials/search?q=${encodeURIComponent(input.trim())}`);
       return;
     }
 
@@ -151,6 +153,7 @@ function PureMultimodalInput({
     width,
     chatId,
     messages,
+    router,
   ]);
 
   const uploadFile = async (file: File) => {
