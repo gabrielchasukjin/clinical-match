@@ -174,6 +174,39 @@ export default function TrialSearchPage() {
                 </div>
               </div>
 
+              {/* Debug Info */}
+              <div className="rounded-xl border bg-card p-6">
+                <h3 className="font-semibold mb-4 text-lg">Search Debug Info</h3>
+                <div className="bg-muted p-4 rounded-lg space-y-3">
+                  <div>
+                    <dt className="font-medium mb-1 text-sm">Search Queries Used</dt>
+                    <dd className="text-muted-foreground text-xs">
+                      {results.searchQueries && results.searchQueries.length > 0 ? (
+                        <ul className="list-disc list-inside space-y-1">
+                          {results.searchQueries.map((q: string, i: number) => (
+                            <li key={i}>{q}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        'No search queries generated'
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium mb-1 text-sm">Total Campaigns Found</dt>
+                    <dd className="text-muted-foreground text-xs">
+                      {results.totalResults || 0} campaigns from Tavily
+                    </dd>
+                  </div>
+                  {results.message && (
+                    <div>
+                      <dt className="font-medium mb-1 text-sm">Message</dt>
+                      <dd className="text-muted-foreground text-xs">{results.message}</dd>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Results Table */}
               <div className="rounded-xl border bg-card p-6">
                 <div className="flex items-center justify-between mb-6">
@@ -319,41 +352,6 @@ export default function TrialSearchPage() {
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
-
-      {/* Input Area */}
-      <div className="mx-auto px-4 bg-background pb-4 md:pb-6 w-full md:max-w-3xl">
-        <div className="rounded-xl border bg-card p-4">
-          <Textarea
-            placeholder="Example: Looking for female patients over 50 with Type 2 Diabetes in Boston area..."
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={4}
-            className="mb-3 text-base resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSearch();
-              }
-            }}
-          />
-          <div className="flex justify-end">
-            <Button
-              onClick={handleSearch}
-              disabled={loading || !description.trim()}
-              className="px-6"
-            >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <span className="animate-spin">⏳</span>
-                  Searching...
-                </span>
-              ) : (
-                'Search for Patients'
-              )}
-            </Button>
-          </div>
-        </div>
       </div>
     </div>
   );
