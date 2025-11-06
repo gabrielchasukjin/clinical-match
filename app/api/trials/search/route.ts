@@ -73,9 +73,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Step 4: Extract patient data from each result (limit to 20 for performance)
+    // Step 4: Extract patient data from each result (limit to 50 for performance)
     console.log('[Step 4/5] Extracting patient data...');
-    const resultsToProcess = uniqueResults.slice(0, 20);
+    const resultsToProcess = uniqueResults.slice(0, 50);
     const patientPromises = resultsToProcess.map((result) =>
       extractPatientData(result.content || result.rawContent || '', result.url)
     );
@@ -94,10 +94,9 @@ export async function POST(request: NextRequest) {
           criteriaBreakdown: match.breakdown,
         };
       })
-      .filter((m) => m.matchScore > 0) // Filter out 0% matches
       .sort((a, b) => b.matchScore - a.matchScore); // Sort by score descending
 
-    console.log(`Found ${matches.length} matches with score > 0`);
+    console.log(`Found ${matches.length} total matches`);
     console.log('=== Search complete ===');
 
     return NextResponse.json({

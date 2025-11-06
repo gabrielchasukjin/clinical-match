@@ -20,11 +20,23 @@ export async function extractPatientData(
   campaignUrl: string
 ): Promise<PatientData> {
   try {
+    // Skip if content is empty or too short
+    if (!campaignContent || campaignContent.trim().length < 50) {
+      console.log(`Skipping extraction for ${campaignUrl} - content too short`);
+      return {
+        name: 'Unknown',
+        gender: 'unknown',
+        conditions: [],
+        campaign_url: campaignUrl,
+        raw_description: campaignContent.slice(0, 500),
+      };
+    }
+
     // Limit content to avoid token limits
     const truncatedContent = campaignContent.slice(0, 3000);
 
     const { object } = await generateObject({
-      model: anthropic('claude-3-5-sonnet-20241022'),
+      model: anthropic('claude-3-5-haiku-20241022'),
       schema: patientSchema,
       prompt: `Extract patient information from this crowdfunding campaign content:
 
@@ -51,8 +63,12 @@ Return valid JSON only.`,
       campaign_url: campaignUrl,
       raw_description: campaignContent.slice(0, 500),
     };
-  } catch (error) {
-    console.error('Failed to extract patient data:', error);
+  } catch (error: any) {
+    console.error(`Failed to extract patient data from ${campaignUrl}:`, {
+      error: error.message,
+      statusCode: error.statusCode,
+      responseBody: error.responseBody,
+    });
     // Return minimal data if extraction fails
     return {
       name: 'Unknown',

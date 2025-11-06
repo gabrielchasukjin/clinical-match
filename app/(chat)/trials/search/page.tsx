@@ -80,7 +80,7 @@ export default function TrialSearchPage() {
               exit={{ opacity: 0, y: -20 }}
               className="mx-auto w-full md:max-w-3xl"
             >
-              <div className="rounded-xl border border-red-500 bg-red-50 dark:bg-red-950/50 p-6">
+              <div className="border border-red-500 bg-red-50 dark:bg-red-950/50 p-6">
                 <h3 className="font-semibold text-red-900 dark:text-red-200 mb-2">Error</h3>
                 <p className="text-red-700 dark:text-red-300">{error}</p>
               </div>
@@ -95,7 +95,7 @@ export default function TrialSearchPage() {
               exit={{ opacity: 0, y: -20 }}
               className="mx-auto w-full md:max-w-3xl"
             >
-              <div className="rounded-xl border bg-card p-8">
+              <div className="border bg-card p-8">
                 <div className="text-center">
                   <div className="text-2xl mb-4">🔍</div>
                   <p className="text-lg font-medium">Searching crowdfunding platforms...</p>
@@ -133,9 +133,9 @@ export default function TrialSearchPage() {
               className="mx-auto w-full md:max-w-5xl space-y-6"
             >
               {/* Parsed Criteria */}
-              <div className="rounded-xl border bg-card p-6">
+              <div className="border bg-card p-6">
                 <h3 className="font-semibold mb-4 text-lg">Parsed Criteria</h3>
-                <div className="bg-muted p-4 rounded-lg">
+                <div className="bg-muted p-4">
                   <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     {results.parsedCriteria.age && (
                       <div>
@@ -175,9 +175,9 @@ export default function TrialSearchPage() {
               </div>
 
               {/* Debug Info */}
-              <div className="rounded-xl border bg-card p-6">
+              <div className="border bg-card p-6">
                 <h3 className="font-semibold mb-4 text-lg">Search Debug Info</h3>
-                <div className="bg-muted p-4 rounded-lg space-y-3">
+                <div className="bg-muted p-4 space-y-3">
                   <div>
                     <dt className="font-medium mb-1 text-sm">Search Queries Used</dt>
                     <dd className="text-muted-foreground text-xs">
@@ -208,7 +208,7 @@ export default function TrialSearchPage() {
               </div>
 
               {/* Results Table */}
-              <div className="rounded-xl border bg-card p-6">
+              <div className="border bg-card p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-2xl font-semibold">
                     {results.matches.length > 0
