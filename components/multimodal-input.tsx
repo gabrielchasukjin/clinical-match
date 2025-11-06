@@ -109,6 +109,12 @@ function PureMultimodalInput({
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
 
   const submitForm = useCallback(() => {
+    // If this is a new chat (no messages), redirect to trial search page
+    if (messages.length === 0 && input.trim()) {
+      window.location.href = `/trials/search?q=${encodeURIComponent(input.trim())}`;
+      return;
+    }
+
     window.history.replaceState({}, '', `/chat/${chatId}`);
 
     sendMessage({
@@ -144,6 +150,7 @@ function PureMultimodalInput({
     setLocalStorageInput,
     width,
     chatId,
+    messages,
   ]);
 
   const uploadFile = async (file: File) => {

@@ -1,18 +1,31 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 
 export default function TrialSearchPage() {
+  const searchParams = useSearchParams();
+  const queryParam = searchParams.get('q');
+
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSearch() {
-    if (!description.trim()) return;
+  // Auto-populate and search when query parameter is present
+  useEffect(() => {
+    if (queryParam && queryParam.trim()) {
+      setDescription(queryParam);
+      // Auto-execute search
+      executeSearch(queryParam);
+    }
+  }, [queryParam]);
+
+  async function executeSearch(searchText: string) {
+    if (!searchText.trim()) return;
 
     setLoading(true);
     setResults(null);
@@ -22,7 +35,7 @@ export default function TrialSearchPage() {
       const response = await fetch('/api/trials/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trialDescription: description }),
+        body: JSON.stringify({ trialDescription: searchText }),
       });
 
       if (!response.ok) {
@@ -38,6 +51,10 @@ export default function TrialSearchPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleSearch() {
+    executeSearch(description);
   }
 
   return (
