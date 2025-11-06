@@ -59,6 +59,7 @@ function PureSuggestedActions({
           className={index > 1 ? 'hidden sm:block' : 'block'}
         >
           <Button
+            type="button"
             variant="ghost"
             onClick={() => {
               router.push(`/trials/search?q=${encodeURIComponent(suggestedAction.action)}`);
