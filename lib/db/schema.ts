@@ -9,6 +9,8 @@ import {
   primaryKey,
   foreignKey,
   boolean,
+  integer,
+  decimal,
 } from 'drizzle-orm/pg-core';
 
 export const user = pgTable('User', {
@@ -168,3 +170,37 @@ export const stream = pgTable(
 );
 
 export type Stream = InferSelectModel<typeof stream>;
+
+// ==================== CLINICAL TRIAL MATCHING TABLES ====================
+
+export const patients = pgTable('Patient', {
+  id: uuid('id').primaryKey().notNull().defaultRandom(),
+  name: varchar('name', { length: 255 }),
+  age: integer('age'),
+  gender: varchar('gender', { length: 50 }),
+  bmi: decimal('bmi', { precision: 5, scale: 2 }),
+  conditions: json('conditions').$type<string[]>().notNull(),
+  location: text('location'),
+  campaign_url: text('campaign_url'),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
+export type Patient = InferSelectModel<typeof patients>;
+
+export const clinicalTrials = pgTable('ClinicalTrial', {
+  id: uuid('id').primaryKey().notNull().defaultRandom(),
+  user_id: uuid('user_id')
+    .notNull()
+    .references(() => user.id),
+  title: text('title').notNull(),
+  raw_criteria_input: text('raw_criteria_input').notNull(),
+  eligibility_criteria: json('eligibility_criteria').$type<{
+    age?: { min?: number; max?: number };
+    gender?: string[];
+    bmi?: { min?: number; max?: number };
+    conditions?: string[];
+  }>().notNull(),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
+export type ClinicalTrial = InferSelectModel<typeof clinicalTrials>;
