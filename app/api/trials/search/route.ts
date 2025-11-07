@@ -242,9 +242,11 @@ export async function POST(request: NextRequest) {
 
     // Debug: Log how many patients have conditions
     const patientsWithConditions = patients.filter(
-      (p) => p.conditions && p.conditions.length > 0
+      (p) => p.conditions && p.conditions.length > 0,
     );
-    console.log(`Patients with conditions: ${patientsWithConditions.length}/${patients.length}`);
+    console.log(
+      `Patients with conditions: ${patientsWithConditions.length}/${patients.length}`,
+    );
 
     // Debug: Show sample of extracted data
     if (patients.length > 0) {
