@@ -235,12 +235,23 @@ export async function POST(request: NextRequest) {
           console.log('[Step 6/6] Saving to database...');
 
           // Insert search session
+          // Transform criteria to match database schema (convert null to undefined)
+          const dbCriteria = {
+            age: criteria.age ? {
+              min: criteria.age.min ?? undefined,
+              max: criteria.age.max ?? undefined,
+            } : undefined,
+            gender: criteria.gender,
+            conditions: criteria.conditions,
+            location: criteria.location,
+          };
+
           const [searchSession] = await db
             .insert(trialSearchSession)
             .values({
               user_id: session.user.id!,
               search_query: trialDescription,
-              parsed_criteria: criteria,
+              parsed_criteria: dbCriteria,
               search_queries: searchQueries,
               total_results: likelyCampaigns.length,
               match_count: matches.length,
