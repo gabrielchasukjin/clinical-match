@@ -63,6 +63,12 @@ Field requirements:
 - organizerName: IMPORTANT - Look for "Organizer:", "Created by", "Fundraiser" section. This is the person who created the campaign. Usually at the bottom of the page.
 - age: exact number if stated, approximate if mentioned (e.g., "in her 50s" = 55)
 - gender: MUST be one of: "male", "female", "non-binary", or "unknown"
+  * IMPORTANT: If gender is NOT explicitly stated in the text, try to infer from the patient's name
+  * Common male names: John, Michael, Robert, James, William, David, Richard, Thomas, Charles, Stephen, etc.
+  * Common female names: Mary, Sarah, Jennifer, Lisa, Michelle, Emily, Jessica, Ashley, Amanda, Luna, etc.
+  * ONLY return "male" or "female" if you are VERY confident based on the name (e.g., "Luna" is clearly female, "Richard" is clearly male)
+  * If the name is ambiguous, unisex, or you're not confident, return "unknown"
+  * Examples: "Luna" → "female", "Richard" → "male", "KG" → "unknown", "Buddy" → "unknown"
 - conditions: Extract ALL medical conditions mentioned ANYWHERE in the text
   * Include PAST medical history (e.g., "had kidney cancer in 2018", "cancer in 2020")
   * Include CURRENT conditions (e.g., "battling heart disease", "diagnosed with diabetes")
