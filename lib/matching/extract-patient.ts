@@ -35,7 +35,7 @@ export async function extractPatientData(
     // Limit content to avoid token limits
     const truncatedContent = campaignContent.slice(0, 2000); // Reduced from 3000
 
-    const BEDROCK_MODEL_ID = process.env.BEDROCK_MODEL_ID || 'us.anthropic.claude-3-5-haiku-20241022-v1:0';
+    const BEDROCK_MODEL_ID = process.env.BEDROCK_MODEL_ID || 'global.anthropic.claude-sonnet-4-5-20250929-v1:0';
 
     const { object } = await generateObject({
       model: bedrock(BEDROCK_MODEL_ID),

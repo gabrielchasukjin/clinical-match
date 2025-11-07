@@ -16,7 +16,7 @@ import { bedrock } from '@/lib/ai/bedrock';
 
 // Use env so you can change the model/profile without code changes
 const BEDROCK_MODEL_ID =
-  process.env.BEDROCK_MODEL_ID || 'us.anthropic.claude-3-5-haiku-20241022-v1:0';
+  process.env.BEDROCK_MODEL_ID || 'global.anthropic.claude-sonnet-4-5-20250929-v1:0';
 if (process.env.NODE_ENV === 'development') {
   console.log('Using Bedrock modelId:', BEDROCK_MODEL_ID);
 }
