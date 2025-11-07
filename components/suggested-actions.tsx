@@ -24,23 +24,23 @@ function PureSuggestedActions({
   const suggestedActions = [
     {
       title: '',
-      label: 'Patients with Type 2 Diabetes in Boston',
-      action: 'Find patients with Type 2 Diabetes in Boston',
+      label: 'Stage 4 lung cancer patients in Boston',
+      action: 'Find Stage 4 lung cancer patients in Boston',
     },
     {
       title: '',
-      label: 'Patients with heart disease in California',
-      action: 'Find patients with heart disease in California',
+      label: 'Type 2 Diabetes patients age 18-70 in California',
+      action: 'Find Type 2 Diabetes patients age 18-70 in California',
     },
     {
       title: '',
-      label: 'Stage 2 Cancer patients in New York',
-      action: 'Find Stage 2 Cancer patients in New York',
+      label: 'Heart failure patients in New York',
+      action: 'Find heart failure patients in New York',
     },
     {
       title: '',
-      label: 'Patients with mental health in New York',
-      action: 'Find patients with mental health issues in New York',
+      label: 'Rheumatoid arthritis patients in Texas',
+      action: 'Find rheumatoid arthritis patients in Texas',
     },
   ];
 
