@@ -135,6 +135,7 @@ export function Chat({
           selectedVisibilityType={initialVisibilityType}
           isReadonly={isReadonly}
           session={session}
+          hasMessages={messages.length > 0}
         />
 
         <Messages
