@@ -140,15 +140,73 @@ export function calculateMatch(
   if (criteria.conditions && patient.conditions && patient.conditions.length > 0) {
     // Extract to const to preserve type narrowing in nested callbacks
     const patientConditions = patient.conditions;
+
     const hasMatchingCondition = criteria.conditions.some((requiredCondition) => {
       const requiredLower = requiredCondition.toLowerCase().trim();
+
       return patientConditions.some((patientCondition) => {
         const patientLower = patientCondition.toLowerCase().trim();
-        // Check both ways: patient condition includes required OR required includes patient condition
-        return (
-          patientLower.includes(requiredLower) ||
-          requiredLower.includes(patientLower)
+
+        // 1. Exact substring match (most specific)
+        if (patientLower.includes(requiredLower) || requiredLower.includes(patientLower)) {
+          return true;
+        }
+
+        // 2. Extract medical keywords (organs, body parts, major terms)
+        // This allows "heart failure" to match "heart attack", "heart surgery", etc.
+        const medicalKeywords = [
+          'heart', 'lung', 'kidney', 'liver', 'brain', 'cancer', 'diabetes',
+          'stroke', 'arthritis', 'asthma', 'copd', 'dementia', 'alzheimer',
+          'parkinson', 'ms', 'multiple sclerosis', 'als', 'leukemia', 'lymphoma',
+          'breast', 'prostate', 'colon', 'pancreatic', 'ovarian', 'melanoma',
+          'cardiomyopathy', 'congestive', 'pulmonary', 'renal', 'hepatic',
+          'neurological', 'cardiovascular', 'respiratory', 'oncology'
+        ];
+
+        // Extract significant keywords from both conditions
+        const requiredKeywords = medicalKeywords.filter(keyword =>
+          requiredLower.includes(keyword)
         );
+
+        const patientKeywords = medicalKeywords.filter(keyword =>
+          patientLower.includes(keyword)
+        );
+
+        // If they share at least one significant medical keyword, consider it a match
+        const hasSharedKeyword = requiredKeywords.some(keyword =>
+          patientKeywords.includes(keyword)
+        );
+
+        if (hasSharedKeyword) {
+          return true;
+        }
+
+        // 3. Common medical synonyms and related terms
+        const relatedTerms: Record<string, string[]> = {
+          'cancer': ['tumor', 'carcinoma', 'sarcoma', 'leukemia', 'lymphoma', 'melanoma', 'oncology'],
+          'tumor': ['cancer', 'carcinoma', 'sarcoma', 'mass', 'neoplasm'],
+          'diabetes': ['diabetic', 'hyperglycemia', 'insulin'],
+          'stroke': ['cerebrovascular', 'cva', 'brain attack'],
+          'copd': ['chronic obstructive pulmonary', 'emphysema', 'chronic bronchitis'],
+          'mi': ['myocardial infarction', 'heart attack'],
+          'chf': ['congestive heart failure', 'heart failure'],
+        };
+
+        // Check if either condition is a synonym of the other
+        for (const [term, synonyms] of Object.entries(relatedTerms)) {
+          if (requiredLower.includes(term)) {
+            if (synonyms.some(syn => patientLower.includes(syn))) {
+              return true;
+            }
+          }
+          if (patientLower.includes(term)) {
+            if (synonyms.some(syn => requiredLower.includes(syn))) {
+              return true;
+            }
+          }
+        }
+
+        return false;
       });
     });
 
