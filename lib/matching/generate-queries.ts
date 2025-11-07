@@ -1,6 +1,6 @@
-import { anthropic } from '@ai-sdk/anthropic';
 import { generateObject } from 'ai';
 import { z } from 'zod';
+import { bedrock } from '@/lib/ai/bedrock';
 import type { TrialCriteria } from './parse-criteria';
 
 const queriesSchema = z.object({
@@ -10,8 +10,10 @@ const queriesSchema = z.object({
 export async function generateSearchQueries(
   criteria: TrialCriteria
 ): Promise<string[]> {
+  const BEDROCK_MODEL_ID = process.env.BEDROCK_MODEL_ID || 'global.anthropic.claude-sonnet-4-5-20250929-v1:0';
+
   const { object } = await generateObject({
-    model: anthropic('claude-3-5-haiku-20241022'),
+    model: bedrock(BEDROCK_MODEL_ID),
     schema: queriesSchema,
     prompt: `Generate 4-6 search queries to find patients on crowdfunding platforms (GoFundMe, GiveSendGo, etc.) who match these clinical trial criteria:
 
@@ -24,12 +26,18 @@ Each query should:
 - Use variations like "patient", "help", "fundraiser", "medical bills", "treatment"
 - Be natural search queries (not just keywords)
 
-Examples:
-- "diabetes patient help medical bills Boston"
-- "woman type 2 diabetes crowdfunding Massachusetts"
-- "female diabetes fundraiser Boston area"
+Return ONLY valid JSON matching this EXACT schema:
+{
+  "queries": ["query1", "query2", "query3", "query4"]
+}
 
-Return array of 4-6 diverse search query strings that would find matching patients.`,
+CRITICAL:
+- Return ONLY the JSON object, NO explanatory text before or after
+- Do NOT include phrases like "I'll generate..." or "Here are..."
+- Start directly with { and end with }
+
+Example valid response:
+{"queries": ["male heart disease fundraiser California", "cardiovascular patient medical bills San Francisco", "cardiac surgery help Southern California", "heart patient crowdfunding Los Angeles"]}`,
   });
 
   return object.queries;

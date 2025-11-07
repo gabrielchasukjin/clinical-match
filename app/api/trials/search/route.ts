@@ -240,6 +240,24 @@ export async function POST(request: NextRequest) {
 
     console.log(`Extracted data for ${patients.length} patients`);
 
+    // Debug: Log how many patients have conditions
+    const patientsWithConditions = patients.filter(
+      (p) => p.conditions && p.conditions.length > 0
+    );
+    console.log(`Patients with conditions: ${patientsWithConditions.length}/${patients.length}`);
+
+    // Debug: Show sample of extracted data
+    if (patients.length > 0) {
+      console.log('Sample patient data:', {
+        name: patients[0].name,
+        age: patients[0].age,
+        gender: patients[0].gender,
+        conditions: patients[0].conditions,
+        location: patients[0].location,
+        hasContent: patients[0].raw_description?.length > 0,
+      });
+    }
+
     // Step 6: Calculate match scores
     console.log('[Step 6/6] Calculating match scores...');
 

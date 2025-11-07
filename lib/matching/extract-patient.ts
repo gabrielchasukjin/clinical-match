@@ -1,6 +1,6 @@
-import { anthropic } from '@ai-sdk/anthropic';
 import { generateObject } from 'ai';
 import { z } from 'zod';
+import { bedrock } from '@/lib/ai/bedrock';
 
 const patientSchema = z.object({
   name: z.string().nullish(),
@@ -41,37 +41,60 @@ export async function extractPatientData(
     // Take content from both start and end to capture organizer info
     const contentLength = campaignContent.length;
     let truncatedContent: string;
-    if (contentLength <= 3000) {
+    if (contentLength <= 4000) {
       truncatedContent = campaignContent;
     } else {
-      // Take first 2000 chars (main content) + last 1000 chars (organizer section)
-      truncatedContent = `${campaignContent.slice(0, 2000)}\n...\n${campaignContent.slice(-1000)}`;
+      // Take first 3000 chars (main content) + last 1000 chars (organizer section)
+      truncatedContent = `${campaignContent.slice(0, 3000)}\n...\n${campaignContent.slice(-1000)}`;
     }
 
+    const BEDROCK_MODEL_ID = process.env.BEDROCK_MODEL_ID || 'global.anthropic.claude-sonnet-4-5-20250929-v1:0';
+
     const { object } = await generateObject({
-      model: anthropic('claude-3-5-haiku-20241022'),
+      model: bedrock(BEDROCK_MODEL_ID),
       schema: patientSchema,
       maxRetries: 2,
       abortSignal: AbortSignal.timeout(15000), // 15 second timeout for complex extraction
-      prompt: `Extract patient information from this crowdfunding campaign:
+      prompt: `Extract patient and campaign organizer information from this crowdfunding campaign:
 
 "${truncatedContent}"
 
-Extract these fields:
-- name: patient's first name (if mentioned)
-- organizerName: if you see "Organizer:", "Created by", or "Fundraiser" followed by a name, extract it
-- age: number only if clearly stated
-- gender: "male", "female", "non-binary", or "unknown"
-- conditions: **IMPORTANT** - Extract ALL medical conditions, diseases, or health issues mentioned. Look for terms like: heart disease, diabetes, cancer, stroke, surgery needed, organ failure, etc. Return as array (e.g., ["heart disease"], ["Type 2 Diabetes", "High Blood Pressure"])
-- location: city/state if mentioned
+Extract and return ONLY valid JSON matching this schema:
+{
+  "name": "string or omit",
+  "organizerName": "string or omit",
+  "age": number or null,
+  "gender": "male" | "female" | "non-binary" | "unknown",
+  "conditions": ["condition1", "condition2"],
+  "location": "City, State" or omit
+}
 
-RULES:
-1. **ALWAYS extract conditions** - this is the most important field
-2. If you find any health-related words, include them in conditions
-3. Default gender to "unknown" if not stated
-4. All fields except conditions are optional
+Field requirements:
+- name: patient's first name or alias if mentioned (e.g., "Sarah" or "Sarah M.")
+- organizerName: IMPORTANT - Look for "Organizer:", "Created by", "Fundraiser" section. This is the person who created the campaign. Usually at the bottom of the page.
+- age: exact number if stated, approximate if mentioned (e.g., "in her 50s" = 55)
+- gender: MUST be one of: "male", "female", "non-binary", or "unknown"
+- conditions: array of medical conditions or health issues mentioned
+  * Include both medical terms AND casual descriptions
+  * Examples: "cancer", "battling cancer", "heart disease", "heart problems", "diabetes", "kidney failure", "stroke"
+  * Include ANY health-related reason for fundraising
+- location: flat string like "Boston, MA" or "California"
 
-Return JSON with the fields you found.`,
+CRITICAL EXTRACTION RULES:
+- Return ONLY the JSON object, NO explanatory text
+- For CONDITIONS: Be generous - extract ANY medical or health-related terms mentioned
+- For organizerName: Check the end of content for organizer section
+- For other fields: Only extract what is clearly stated
+- GoFundMe campaigns often use casual language - extract those too
+- If you see phrases like "fighting", "battling", "diagnosed with", "suffering from" - extract the condition
+
+Examples:
+✓ "battling cancer" → ["cancer"]
+✓ "heart problems" → ["heart disease"]
+✓ "diagnosed with Type 2 Diabetes" → ["Type 2 Diabetes"]
+✓ "kidney failure treatment" → ["kidney failure"]
+
+Example output: {"name": "John", "organizerName": "Mary Smith", "age": 45, "gender": "male", "conditions": ["heart disease"], "location": "California"}`,
     });
 
     // Normalize the extracted data - filter out invalid values

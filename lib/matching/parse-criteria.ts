@@ -1,6 +1,6 @@
-import { anthropic } from '@ai-sdk/anthropic';
 import { generateObject } from 'ai';
 import { z } from 'zod';
+import { bedrock } from '@/lib/ai/bedrock';
 
 const criteriaSchema = z.object({
   age: z
@@ -23,33 +23,46 @@ export type TrialCriteria = z.infer<typeof criteriaSchema>;
 export async function parseCriteria(
   trialDescription: string,
 ): Promise<TrialCriteria> {
+  const BEDROCK_MODEL_ID = process.env.BEDROCK_MODEL_ID || 'global.anthropic.claude-sonnet-4-5-20250929-v1:0';
+
   const { object } = await generateObject({
-    model: anthropic('claude-3-5-haiku-20241022'),
+    model: bedrock(BEDROCK_MODEL_ID),
     schema: criteriaSchema,
     prompt: `Extract clinical trial eligibility criteria from this description:
 
 "${trialDescription}"
 
-Return structured JSON with:
-- age range (min/max)
-- gender requirements
-- medical conditions
-- location preferences
-- exclusion criteria
-- priorityOrder: array indicating the order in which criteria are mentioned in the input text (in order of appearance)
+Return JSON matching this EXACT schema:
+{
+  "age": { "min": <number>, "max": <number> },  // optional
+  "gender": ["male" | "female" | "non-binary"],  // MUST be an ARRAY, e.g., ["male"] or ["female", "male"]
+  "conditions": ["condition1", "condition2"],     // array of strings
+  "location": "City, State" OR "State",           // MUST be a flat string, NOT an object
+  "exclusions": ["exclusion1", "exclusion2"],     // array of strings
+  "priorityOrder": ["conditions", "gender", "age", "location"]  // order of criteria importance based on input
+}
 
-For priorityOrder - IMPORTANT RULES:
+IMPORTANT RULES:
+- gender MUST be an array: ["male"] NOT "male"
+- location MUST be a string: "California" NOT {"state": "California"}
+- Only include fields that are explicitly mentioned
+- Be conservative and accurate
+
+For priorityOrder - CRITICAL:
 1. If medical conditions/diseases are mentioned, "conditions" MUST be first in the priority order
 2. After conditions (if present), list other criteria in the order they appear in the text
 3. Only include criteria that are explicitly mentioned
+4. This determines matching weight distribution
 
 Examples:
-- "diabetes patient in Boston" → ["conditions", "location"] (condition always first)
-- "female around 20 years old with heart disease" → ["conditions", "gender", "age", "location"] (condition first, then order of mention)
-- "female, over 50+ age, living in Austin" → ["gender", "age", "location"] (no condition mentioned, so order of appearance)
-- "patients in New York with cancer" → ["conditions", "location"] (condition first even if mentioned later)
+✓ {"gender": ["male"], "location": "California"}
+✗ {"gender": "male", "location": {"state": "California"}}
 
-Only include fields that are explicitly mentioned. Be conservative and accurate.`,
+Priority order examples:
+- "diabetes patient in Boston" → priorityOrder: ["conditions", "location"]
+- "female around 20 years old with heart disease" → priorityOrder: ["conditions", "gender", "age"]
+- "female, over 50+ age, living in Austin" → priorityOrder: ["gender", "age", "location"]
+- "patients in New York with cancer" → priorityOrder: ["conditions", "location"]`,
   });
 
   return object;
