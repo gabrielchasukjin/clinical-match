@@ -1,6 +1,6 @@
-import { anthropic } from '@ai-sdk/anthropic';
 import { generateObject } from 'ai';
 import { z } from 'zod';
+import { bedrock } from '@/lib/ai/bedrock';
 
 const patientSchema = z.object({
   name: z.string().optional(),
@@ -35,8 +35,10 @@ export async function extractPatientData(
     // Limit content to avoid token limits
     const truncatedContent = campaignContent.slice(0, 2000); // Reduced from 3000
 
+    const BEDROCK_MODEL_ID = process.env.BEDROCK_MODEL_ID || 'us.anthropic.claude-3-5-haiku-20241022-v1:0';
+
     const { object } = await generateObject({
-      model: anthropic('claude-3-5-haiku-20241022'),
+      model: bedrock(BEDROCK_MODEL_ID),
       schema: patientSchema,
       maxRetries: 1, // Reduce retries for faster failure
       abortSignal: AbortSignal.timeout(10000), // 10 second timeout
