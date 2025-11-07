@@ -12,12 +12,14 @@ interface SuggestedActionsProps {
   chatId: string;
   sendMessage: UseChatHelpers<ChatMessage>['sendMessage'];
   selectedVisibilityType: VisibilityType;
+  setInput?: (input: string) => void;
 }
 
 function PureSuggestedActions({
   chatId,
   sendMessage,
   selectedVisibilityType,
+  setInput,
 }: SuggestedActionsProps) {
   const router = useRouter();
 
@@ -64,9 +66,9 @@ function PureSuggestedActions({
             onClick={() => {
               router.push(`/trials/search?q=${encodeURIComponent(suggestedAction.action)}`);
             }}
-            className="text-left border border-gray-200 rounded-lg px-5 py-4 text-base w-full h-auto justify-start items-start hover:border-blue-300 hover:bg-blue-50/50 transition-colors"
+            className="text-left border border-gray-200 rounded-lg px-5 py-4 text-base w-full h-auto justify-start items-start hover:border-blue-300 hover:bg-blue-50/50 transition-colors whitespace-normal break-words"
           >
-            <span className="text-gray-700">
+            <span className="text-gray-700 break-words">
               {suggestedAction.label}
             </span>
           </Button>

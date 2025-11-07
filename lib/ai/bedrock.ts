@@ -70,9 +70,64 @@ async function withRetries<T>(fn: () => Promise<T>) {
  * ----------------------------------------------------------------*/
 function stripMarkdownCodeFences(text: string): string {
   // Remove markdown code fences like ```json\n...\n``` or ```\n...\n```
-  const fencePattern = /^```(?:json|typescript|javascript|python|)?\s*\n?([\s\S]*?)\n?```$/;
+  const fencePattern =
+    /^```(?:json|typescript|javascript|python|)?\s*\n?([\s\S]*?)\n?```$/;
   const match = text.trim().match(fencePattern);
   return match ? match[1].trim() : text;
+}
+
+function extractJSONOnly(text: string): string {
+  // First strip markdown fences
+  const cleaned = stripMarkdownCodeFences(text);
+
+  // Find the JSON object/array and remove any explanation text after it
+  // Look for closing } or ] followed by non-JSON text
+  try {
+    // Try to find where valid JSON ends
+    let depth = 0;
+    let inString = false;
+    let isEscaped = false;
+    let jsonEnd = -1;
+
+    for (let i = 0; i < cleaned.length; i++) {
+      const char = cleaned[i];
+
+      if (isEscaped) {
+        isEscaped = false;
+        continue;
+      }
+
+      if (char === '\\') {
+        isEscaped = true;
+        continue;
+      }
+
+      if (char === '"') {
+        inString = !inString;
+        continue;
+      }
+
+      if (inString) continue;
+
+      if (char === '{' || char === '[') {
+        depth++;
+      } else if (char === '}' || char === ']') {
+        depth--;
+        if (depth === 0) {
+          jsonEnd = i + 1;
+          break;
+        }
+      }
+    }
+
+    if (jsonEnd > 0) {
+      return cleaned.substring(0, jsonEnd).trim();
+    }
+  } catch (e) {
+    // If extraction fails, return original cleaned text
+  }
+
+  return cleaned;
 }
 
 /** ----------------------------------------------------------------
@@ -173,8 +228,8 @@ async function converseGenerate(opts: {
   try {
     const res = await withRetries(() => opts.client.send(cmd));
     const rawText = res.output?.message?.content?.[0]?.text ?? '';
-    // Strip markdown code fences that Sonnet 4.5 likes to add around JSON
-    const text = stripMarkdownCodeFences(rawText);
+    // Strip markdown code fences and extract only JSON (remove explanation text)
+    const text = extractJSONOnly(rawText);
     const stopReason = res.stopReason ?? 'end_turn';
 
     return {
@@ -254,8 +309,8 @@ async function legacyGenerate(opts: {
   const res = await withRetries(() => opts.client.send(cmd));
   const json = JSON.parse(new TextDecoder().decode(res.body));
   const rawText: string = json?.completion ?? '';
-  // Strip markdown code fences if present
-  const text = stripMarkdownCodeFences(rawText);
+  // Strip markdown code fences and extract only JSON
+  const text = extractJSONOnly(rawText);
   const stopReason = 'end_turn';
 
   return { text, stopReason, inputTokens: 0, outputTokens: 0 };

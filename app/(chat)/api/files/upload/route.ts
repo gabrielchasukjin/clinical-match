@@ -8,13 +8,18 @@ import { auth } from '@/app/(auth)/auth';
 const FileSchema = z.object({
   file: z
     .instanceof(Blob)
-    .refine((file) => file.size <= 5 * 1024 * 1024, {
-      message: 'File size should be less than 5MB',
+    .refine((file) => file.size <= 10 * 1024 * 1024, {
+      message: 'File size should be less than 10MB',
     })
-    // Update the file type based on the kind of files you want to accept
-    .refine((file) => ['image/jpeg', 'image/png'].includes(file.type), {
-      message: 'File type should be JPEG or PNG',
-    }),
+    // Accept all common image formats and PDFs for research paper uploads
+    .refine(
+      (file) =>
+        file.type.startsWith('image/') ||
+        file.type === 'application/pdf',
+      {
+        message: 'File type should be an image (JPEG, PNG, WebP, GIF, etc.) or PDF',
+      },
+    ),
 });
 
 export async function POST(request: Request) {
@@ -36,6 +41,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
+    console.log('File upload attempt:', {
+      type: file.type,
+      size: file.size,
+      name: (formData.get('file') as File).name,
+    });
+
     const validatedFile = FileSchema.safeParse({ file });
 
     if (!validatedFile.success) {
@@ -43,6 +54,7 @@ export async function POST(request: Request) {
         .map((error) => error.message)
         .join(', ');
 
+      console.error('File validation failed:', errorMessage);
       return NextResponse.json({ error: errorMessage }, { status: 400 });
     }
 
@@ -56,12 +68,17 @@ export async function POST(request: Request) {
       });
 
       return NextResponse.json(data);
-    } catch (error) {
-      return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
+    } catch (error: any) {
+      console.error('Vercel Blob upload failed:', error);
+      return NextResponse.json(
+        { error: `Upload failed: ${error.message || 'Unknown error'}` },
+        { status: 500 },
+      );
     }
-  } catch (error) {
+  } catch (error: any) {
+    console.error('Request processing failed:', error);
     return NextResponse.json(
-      { error: 'Failed to process request' },
+      { error: `Failed to process request: ${error.message || 'Unknown error'}` },
       { status: 500 },
     );
   }

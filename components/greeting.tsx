@@ -25,6 +25,15 @@ export const Greeting = () => {
         AI-powered matching that connects clinical trials<br />
         with qualified candidates in seconds
       </motion.div>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 10 }}
+        transition={{ delay: 0.7 }}
+        className="text-center text-sm text-gray-500 max-w-2xl"
+      >
+        💡 Paste your research paper abstract below, or upload an image/PDF using the 📎 button
+      </motion.div>
     </div>
   );
 };

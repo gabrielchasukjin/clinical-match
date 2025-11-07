@@ -112,7 +112,144 @@ function PureMultimodalInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
 
-  const submitForm = useCallback(() => {
+  // Helper function to detect if text looks like a research paper
+  const looksLikeResearchPaper = (text: string): boolean => {
+    const lowerText = text.toLowerCase();
+    const keywords = [
+      'inclusion criteria',
+      'exclusion criteria',
+      'eligibility criteria',
+      'study population',
+      'participants',
+      'clinical trial',
+      'recruitment',
+      'enrolled',
+    ];
+    
+    // Check if text is long enough and contains research paper keywords
+    return text.length > 200 && keywords.some(keyword => lowerText.includes(keyword));
+  };
+
+  const submitForm = useCallback(async () => {
+    // Check if this looks like a research paper submission
+    const hasImage = attachments.some(att => att.contentType?.startsWith('image/'));
+    const hasPDF = attachments.some(att => att.contentType === 'application/pdf');
+    const isPaper = looksLikeResearchPaper(input);
+    
+    // PDF uploads are now supported!
+    
+    // If user uploaded an image/PDF (even without text) or pasted research paper text, extract criteria
+    if (messages.length === 0 && (hasImage || hasPDF || isPaper)) {
+      try {
+        toast.info('Extracting patient criteria from research paper...');
+        
+        const formData = new FormData();
+        
+        if (input.trim()) {
+          formData.append('text', input.trim());
+        }
+        
+        // If there's an image attachment, fetch it and add to formData
+        if (hasImage) {
+          const imageAttachment = attachments.find(att => att.contentType?.startsWith('image/'));
+          if (imageAttachment) {
+            try {
+              // Fetch the blob from the local URL
+              const response = await fetch(imageAttachment.url);
+              if (!response.ok) {
+                throw new Error('Failed to fetch image blob');
+              }
+              const blob = await response.blob();
+              formData.append('image', blob, imageAttachment.name);
+            } catch (fetchError) {
+              console.error('Failed to fetch image:', fetchError);
+              toast.error('Failed to process uploaded image. Please try again.');
+              return;
+            }
+          }
+        }
+        
+        // If there's a PDF attachment, fetch it and add to formData
+        if (hasPDF) {
+          const pdfAttachment = attachments.find(att => att.contentType === 'application/pdf');
+          if (pdfAttachment) {
+            try {
+              // Fetch the blob from the local URL
+              const response = await fetch(pdfAttachment.url);
+              if (!response.ok) {
+                throw new Error('Failed to fetch PDF blob');
+              }
+              const blob = await response.blob();
+              formData.append('pdf', blob, pdfAttachment.name);
+            } catch (fetchError) {
+              console.error('Failed to fetch PDF:', fetchError);
+              toast.error('Failed to process uploaded PDF. Please try again.');
+              return;
+            }
+          }
+        }
+        
+        const extractResponse = await fetch('/api/trials/extract-from-paper', {
+          method: 'POST',
+          body: formData,
+        });
+        
+        if (!extractResponse.ok) {
+          let errorMessage = 'Failed to extract criteria from paper';
+          try {
+            const errorData = await extractResponse.json();
+            if (errorData.error) {
+              errorMessage = errorData.error;
+            }
+            console.error('Extract API error:', errorData);
+          } catch (parseError) {
+            console.error('Failed to parse error response:', parseError);
+          }
+          throw new Error(errorMessage);
+        }
+        
+        const { criteria } = await extractResponse.json();
+        console.log('Extracted criteria:', criteria);
+        
+        // Build search query from extracted criteria
+        const parts: string[] = [];
+        if (criteria.conditions && criteria.conditions.length > 0) {
+          parts.push(`patients with ${criteria.conditions.join(', ')}`);
+        }
+        if (criteria.gender && criteria.gender.length > 0) {
+          parts.push(criteria.gender.join(' or '));
+        }
+        if (criteria.age) {
+          if (criteria.age.min && criteria.age.max) {
+            parts.push(`aged ${criteria.age.min}-${criteria.age.max}`);
+          } else if (criteria.age.min) {
+            parts.push(`aged ${criteria.age.min}+`);
+          }
+        }
+        // Only add location if it's valid and not a placeholder
+        if (criteria.location && criteria.location.trim() && !criteria.location.includes('<')) {
+          parts.push(`in ${criteria.location}`);
+        }
+        
+        const searchQuery = parts.join(', ');
+        
+        // Clear attachments and input before redirecting
+        setAttachments([]);
+        setInput('');
+        
+        toast.success('Criteria extracted! Searching for matching patients...');
+        router.push(`/trials/search?q=${encodeURIComponent(searchQuery)}`);
+        return;
+      } catch (error: any) {
+        console.error('Extract criteria error:', error);
+        toast.error(error.message || 'Failed to extract criteria. Using text as search query.');
+        // Fall through to regular search if there's text
+        if (!input.trim()) {
+          return;
+        }
+      }
+    }
+    
     // If this is a new chat (no messages), redirect to trial search page
     if (messages.length === 0 && input.trim()) {
       router.push(`/trials/search?q=${encodeURIComponent(input.trim())}`);
@@ -159,6 +296,23 @@ function PureMultimodalInput({
   ]);
 
   const uploadFile = async (file: File) => {
+    // For images and PDFs (research papers), create a local blob URL instead of uploading to Vercel Blob
+    if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+      try {
+        const blobUrl = URL.createObjectURL(file);
+        return {
+          url: blobUrl,
+          name: file.name,
+          contentType: file.type,
+        };
+      } catch (error) {
+        console.error('Failed to create blob URL:', error);
+        toast.error('Failed to process file');
+        return undefined;
+      }
+    }
+
+    // For other files, try to upload to Vercel Blob
     const formData = new FormData();
     formData.append('file', file);
 
@@ -188,6 +342,68 @@ function PureMultimodalInput({
   const handleFileChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(event.target.files || []);
+
+      // Show info for PDF files
+      const hasPDF = files.some(file => file.type === 'application/pdf');
+      if (hasPDF) {
+        toast.success('PDF uploaded! Text will be automatically extracted.', {
+          duration: 3000,
+        });
+      }
+
+      setUploadQueue(files.map((file) => file.name));
+
+      try {
+        const uploadPromises = files.map((file) => uploadFile(file));
+        const uploadedAttachments = await Promise.all(uploadPromises);
+        const successfullyUploadedAttachments = uploadedAttachments.filter(
+          (attachment) => attachment !== undefined,
+        );
+
+        setAttachments((currentAttachments) => [
+          ...currentAttachments,
+          ...successfullyUploadedAttachments,
+        ]);
+      } catch (error) {
+        console.error('Error uploading files!', error);
+      } finally {
+        setUploadQueue([]);
+      }
+    },
+    [setAttachments],
+  );
+
+  // Drag and drop handlers
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length === 0) return;
+
+      // Show info for PDF files
+      const hasPDF = files.some(file => file.type === 'application/pdf');
+      if (hasPDF) {
+        toast.success('PDF uploaded! Text will be automatically extracted.', {
+          duration: 3000,
+        });
+      }
 
       setUploadQueue(files.map((file) => file.name));
 
@@ -253,6 +469,7 @@ function PureMultimodalInput({
             sendMessage={sendMessage}
             chatId={chatId}
             selectedVisibilityType={selectedVisibilityType}
+            setInput={setInput}
           />
         )}
 
@@ -261,6 +478,7 @@ function PureMultimodalInput({
         className="fixed -top-4 -left-4 size-0.5 opacity-0 pointer-events-none"
         ref={fileInputRef}
         multiple
+        accept="image/*,application/pdf"
         onChange={handleFileChange}
         tabIndex={-1}
       />
@@ -288,15 +506,30 @@ function PureMultimodalInput({
         </div>
       )}
 
-      <div className="relative bg-white rounded-2xl shadow-lg border border-gray-200">
+      <div 
+        className={cx(
+          "relative bg-white rounded-2xl shadow-lg border-2 transition-colors",
+          isDragging ? "border-blue-500 bg-blue-50" : "border-gray-200"
+        )}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {isDragging && (
+          <div className="absolute inset-0 bg-blue-100 bg-opacity-50 rounded-2xl flex items-center justify-center z-10 pointer-events-none">
+            <div className="text-blue-600 font-medium text-lg">
+              📎 Drop your research paper image or PDF here (text will be auto-extracted)
+            </div>
+          </div>
+        )}
         <Textarea
           data-testid="multimodal-input"
           ref={textareaRef}
-          placeholder=""
+          placeholder="Paste research paper abstract, or drop an image/PDF (text will be auto-extracted)..."
           value={input}
           onChange={handleInput}
           className={cx(
-            'min-h-[60px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-t-2xl !text-base bg-white border-0 focus:ring-0 focus:outline-none px-4 pt-4 pb-2',
+            'min-h-[60px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-t-2xl !text-base bg-transparent border-0 focus:ring-0 focus:outline-none px-4 pt-4 pb-2',
             className,
           )}
           rows={1}
@@ -325,11 +558,11 @@ function PureMultimodalInput({
               type="button"
               onClick={(event) => {
                 event.preventDefault();
-                if (status === 'ready' && input.trim()) {
+                if (status === 'ready' && (input.trim() || attachments.length > 0)) {
                   submitForm();
                 }
               }}
-              disabled={status !== 'ready' || !input.trim()}
+              disabled={status !== 'ready' || (!input.trim() && attachments.length === 0)}
               className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg h-9 text-sm font-medium flex items-center disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1.5">
@@ -349,6 +582,7 @@ function PureMultimodalInput({
                 input={input}
                 submitForm={submitForm}
                 uploadQueue={uploadQueue}
+                attachments={attachments}
               />
             )}
           </div>
@@ -424,10 +658,12 @@ function PureSendButton({
   submitForm,
   input,
   uploadQueue,
+  attachments,
 }: {
   submitForm: () => void;
   input: string;
   uploadQueue: Array<string>;
+  attachments: Array<Attachment>;
 }) {
   return (
     <Button
@@ -437,7 +673,7 @@ function PureSendButton({
         event.preventDefault();
         submitForm();
       }}
-      disabled={input.length === 0 || uploadQueue.length > 0}
+      disabled={(input.length === 0 && attachments.length === 0) || uploadQueue.length > 0}
       variant="ghost"
     >
       <ArrowUpIcon size={16} />
@@ -449,5 +685,6 @@ const SendButton = memo(PureSendButton, (prevProps, nextProps) => {
   if (prevProps.uploadQueue.length !== nextProps.uploadQueue.length)
     return false;
   if (prevProps.input !== nextProps.input) return false;
+  if (prevProps.attachments.length !== nextProps.attachments.length) return false;
   return true;
 });
