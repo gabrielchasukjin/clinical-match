@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
         });
 
         console.log('[Step 5/6] Calculating match scores...');
-        let dynamicWeights;
+        let dynamicWeights: { age: number; gender: number; conditions: number; location: number } | undefined;
         const matches = patients
           .map((patient) => {
             const match = calculateMatch(patient, criteria);
