@@ -37,15 +37,17 @@ export async function extractPatientData(
       };
     }
 
-    // Limit content to avoid token limits
-    // Take content from both start and end to capture organizer info
+    // Limit content to avoid token limits - only truncate if absolutely necessary
+    // Most GoFundMe campaigns are 5,000-15,000 chars, we can handle up to ~20,000
     const contentLength = campaignContent.length;
     let truncatedContent: string;
-    if (contentLength <= 4000) {
+    if (contentLength <= 20000) {
+      // Use full content for most campaigns
       truncatedContent = campaignContent;
     } else {
-      // Take first 3000 chars (main content) + last 1000 chars (organizer section)
-      truncatedContent = `${campaignContent.slice(0, 3000)}\n...\n${campaignContent.slice(-1000)}`;
+      // Only truncate very long campaigns
+      // Take first 12000 chars (main content + full story) + last 3000 chars (organizer section)
+      truncatedContent = `${campaignContent.slice(0, 12000)}\n...\n${campaignContent.slice(-3000)}`;
     }
 
     const { object } = await generateObject({
@@ -72,27 +74,36 @@ Field requirements:
 - organizerName: IMPORTANT - Look for "Organizer:", "Created by", "Fundraiser" section. This is the person who created the campaign. Usually at the bottom of the page.
 - age: exact number if stated, approximate if mentioned (e.g., "in her 50s" = 55)
 - gender: MUST be one of: "male", "female", "non-binary", or "unknown"
-- conditions: array of medical conditions or health issues mentioned
-  * Include both medical terms AND casual descriptions
-  * Examples: "cancer", "battling cancer", "heart disease", "heart problems", "diabetes", "kidney failure", "stroke"
-  * Include ANY health-related reason for fundraising
+- conditions: Extract ALL medical conditions mentioned ANYWHERE in the text
+  * Include PAST medical history (e.g., "had kidney cancer in 2018", "cancer in 2020")
+  * Include CURRENT conditions (e.g., "battling heart disease", "diagnosed with diabetes")
+  * Include COMPLICATIONS and related issues (e.g., "became paralyzed", "heart issues after covid", "spinal condition")
+  * Include SPECIFIC disease names and types (e.g., "Merkel Cell Carcinoma", "Type 2 Diabetes", not just "cancer" or "diabetes")
+  * Look for hospital/treatment mentions (e.g., "Moffitt Cancer Center" = cancer, "radiation" = cancer treatment)
+  * Include chronic conditions (e.g., "rheumatoid arthritis", "kidney disease")
+  * Extract both medical terms AND casual descriptions
+  * Examples: "kidney cancer", "Merkel Cell Carcinoma", "rheumatoid arthritis", "paralyzed", "heart issues", "COVID-19"
 - location: flat string like "Boston, MA" or "California"
 
 CRITICAL EXTRACTION RULES:
 - Return ONLY the JSON object, NO explanatory text
-- For CONDITIONS: Be generous - extract ANY medical or health-related terms mentioned
+- For CONDITIONS: Be VERY generous - extract EVERY medical condition, past or present, mentioned ANYWHERE in the campaign
+- For CONDITIONS: Read the ENTIRE story carefully - medical history is often detailed in paragraphs
+- For CONDITIONS: Include the specific type of condition when mentioned (e.g., "Stage 4 lung cancer" not just "cancer")
 - For organizerName: Check the end of content for organizer section
 - For other fields: Only extract what is clearly stated
 - GoFundMe campaigns often use casual language - extract those too
-- If you see phrases like "fighting", "battling", "diagnosed with", "suffering from" - extract the condition
+- If you see phrases like "fighting", "battling", "diagnosed with", "suffering from", "received diagnosis of" - extract the condition
+- Look for timeline references like "in 2018", "after covid", "April of 2022" - these indicate multiple conditions
 
 Examples:
 ✓ "battling cancer" → ["cancer"]
 ✓ "heart problems" → ["heart disease"]
 ✓ "diagnosed with Type 2 Diabetes" → ["Type 2 Diabetes"]
 ✓ "kidney failure treatment" → ["kidney failure"]
+✓ "had kidney cancer in 2018...rheumatoid arthritis...heart issues...Merkel Cell Carcinoma...became paralyzed" → ["kidney cancer", "rheumatoid arthritis", "heart issues", "Merkel Cell Carcinoma", "paralyzed"]
 
-Example output: {"name": "John", "organizerName": "Mary Smith", "age": 45, "gender": "male", "conditions": ["heart disease"], "location": "California"}`,
+Example output with multiple conditions: {"name": "Calvin", "organizerName": "Deserray Walters", "age": null, "gender": "male", "conditions": ["kidney cancer", "rheumatoid arthritis", "COVID-19", "heart issues", "Merkel Cell Carcinoma", "paralyzed"], "location": "Panama City, FL"}`,
     });
 
     // Normalize the extracted data - filter out invalid values
