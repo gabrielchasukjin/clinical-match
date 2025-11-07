@@ -4,9 +4,9 @@ import { z } from 'zod';
 
 const patientSchema = z.object({
   name: z.string().optional(),
-  age: z.number().optional(),
+  age: z.number().nullish(),
   gender: z.enum(['male', 'female', 'non-binary', 'unknown']).optional(),
-  conditions: z.array(z.string()),
+  conditions: z.array(z.string()).default([]),
   location: z.string().optional(),
 });
 
@@ -21,23 +21,25 @@ export async function extractPatientData(
 ): Promise<PatientData> {
   try {
     // Skip if content is empty or too short
-    if (!campaignContent || campaignContent.trim().length < 50) {
-      console.log(`Skipping extraction for ${campaignUrl} - content too short`);
+    if (!campaignContent || campaignContent.trim().length < 100) {
+      console.log(`Skipping extraction for ${campaignUrl} - content too short (${campaignContent?.length || 0} chars)`);
       return {
         name: 'Unknown',
         gender: 'unknown',
         conditions: [],
         campaign_url: campaignUrl,
-        raw_description: campaignContent.slice(0, 500),
+        raw_description: campaignContent?.slice(0, 500) || '',
       };
     }
 
     // Limit content to avoid token limits
-    const truncatedContent = campaignContent.slice(0, 3000);
+    const truncatedContent = campaignContent.slice(0, 2000); // Reduced from 3000
 
     const { object } = await generateObject({
       model: anthropic('claude-3-5-haiku-20241022'),
       schema: patientSchema,
+      maxRetries: 1, // Reduce retries for faster failure
+      abortSignal: AbortSignal.timeout(10000), // 10 second timeout
       prompt: `Extract patient information from this crowdfunding campaign content:
 
 "${truncatedContent}"

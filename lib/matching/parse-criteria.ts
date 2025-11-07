@@ -5,8 +5,8 @@ import { z } from 'zod';
 const criteriaSchema = z.object({
   age: z
     .object({
-      min: z.number().optional(),
-      max: z.number().optional(),
+      min: z.number().nullish(),
+      max: z.number().nullish(),
     })
     .optional(),
   gender: z.array(z.enum(['male', 'female', 'non-binary'])).optional(),

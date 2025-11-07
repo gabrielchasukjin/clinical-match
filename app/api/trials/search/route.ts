@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     if (!trialDescription || typeof trialDescription !== 'string') {
       return NextResponse.json(
         { error: 'Trial description is required' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -28,20 +28,20 @@ export async function POST(request: NextRequest) {
     console.log('Input:', trialDescription);
 
     // Step 1: Parse criteria with LLM
-    console.log('[Step 1/5] Parsing criteria...');
+    console.log('[Step 1/6] Parsing criteria...');
     const criteria = await parseCriteria(trialDescription);
     console.log('Parsed criteria:', JSON.stringify(criteria, null, 2));
 
     // Step 2: Generate search queries
-    console.log('[Step 2/5] Generating search queries...');
+    console.log('[Step 2/6] Generating search queries...');
     const searchQueries = await generateSearchQueries(criteria);
     console.log('Generated queries:', searchQueries);
 
-    // Step 3: Execute Tavily searches in parallel
-    console.log('[Step 3/5] Searching with Tavily...');
+    // Step 3: Execute Tavily searches in parallel (GoFundMe only)
+    console.log('[Step 3/6] Searching with Tavily...');
     const searchPromises = searchQueries.map((query) =>
       tavily
-        .search(`${query} gofundme OR givesendgo OR fundly crowdfunding`, {
+        .search(`${query} site:gofundme.com`, {
           searchDepth: 'advanced',
           maxResults: 10,
           includeRawContent: 'text',
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
         .catch((error) => {
           console.error(`Search failed for query "${query}":`, error);
           return { results: [] };
-        })
+        }),
     );
 
     const searchResults = await Promise.all(searchPromises);
@@ -57,35 +57,130 @@ export async function POST(request: NextRequest) {
 
     // Deduplicate by URL
     const uniqueResults = Array.from(
-      new Map(allResults.map((r) => [r.url, r])).values()
+      new Map(allResults.map((r) => [r.url, r])).values(),
     );
 
-    console.log(`Found ${uniqueResults.length} unique campaigns`);
+    // Filter for GoFundMe campaigns only
+    const gofundmeCampaigns = uniqueResults.filter((result) =>
+      result.url.toLowerCase().includes('gofundme.com'),
+    );
 
-    if (uniqueResults.length === 0) {
+    // Filter out non-campaign pages (info pages, blogs, FAQs, sitemaps, etc.)
+    const excludePatterns = [
+      '/c/start/',
+      '/c/blog/',
+      '/c/questions',
+      '/c/about',
+      '/search',
+      '/discover',
+      '/help',
+      '/support',
+      '/contact',
+      '/terms',
+      '/privacy',
+      '/pricing',
+      '/signin',
+      '/signup',
+      '/login',
+      '/register',
+      '/sitemaps/',
+      'sitemap',
+      '.xml',
+      '/en-gb',
+      '/en-au',
+      '/en-ca',
+      '/en-ie',
+    ];
+
+    const likelyCampaigns = gofundmeCampaigns.filter((result) => {
+      const url = result.url.toLowerCase();
+      // Must include /f/ (campaign pattern) and exclude problematic patterns
+      return (
+        url.includes('/f/') &&
+        !excludePatterns.some((pattern) => url.includes(pattern.toLowerCase()))
+      );
+    });
+
+    console.log(`Found ${uniqueResults.length} unique results`);
+    console.log(`Filtered to ${gofundmeCampaigns.length} GoFundMe campaigns`);
+    console.log(`Final count: ${likelyCampaigns.length} valid campaign pages`);
+
+    if (likelyCampaigns.length === 0) {
       return NextResponse.json({
         parsedCriteria: criteria,
         searchQueries,
         totalResults: 0,
         matches: [],
         message:
-          'No crowdfunding campaigns found. Try broadening your search criteria or different condition names.',
+          'No GoFundMe campaigns found. Try broadening your search criteria or using different condition names.',
       });
     }
 
-    // Step 4: Extract patient data from each result (limit to 50 for performance)
-    console.log('[Step 4/5] Extracting patient data...');
-    const resultsToProcess = uniqueResults.slice(0, 50);
-    const patientPromises = resultsToProcess.map((result) =>
-      extractPatientData(result.content || result.rawContent || '', result.url)
-    );
+    // Step 4: Extract clean content from URLs using Tavily Extract
+    console.log('[Step 4/6] Extracting content from campaign URLs...');
+    const urlsToProcess = likelyCampaigns.slice(0, 15).map((r) => r.url);
 
-    const patients = await Promise.all(patientPromises);
+    // Use Tavily Extract to get clean content from URLs
+    let extractedContents: Array<{ url: string; content: string }> = [];
+    try {
+      const extractResponse = await tavily.extract(urlsToProcess, {
+        format: 'markdown',
+        extract_depth: 'advanced', // Use advanced for more complete extraction
+        timeout: 30, // 30 second timeout per URL
+      });
+
+      extractedContents = extractResponse.results.map((result: any) => ({
+        url: result.url,
+        content: result.raw_content || '',
+      }));
+
+      console.log(
+        `Successfully extracted content from ${extractedContents.length} URLs`,
+      );
+
+      // Log content lengths for debugging
+      const contentLengths = extractedContents.map((c) => ({
+        url: c.url.split('/').pop(),
+        length: c.content.length,
+      }));
+      console.log('Content lengths:', contentLengths);
+    } catch (error) {
+      console.error(
+        'Tavily Extract failed, falling back to search content:',
+        error,
+      );
+      // Fallback to original search content
+      extractedContents = likelyCampaigns.slice(0, 15).map((result) => ({
+        url: result.url,
+        content: result.content || result.rawContent || '',
+      }));
+    }
+
+    // Step 5: Extract patient data from content
+    console.log('[Step 5/6] Extracting patient data with AI...');
+    const batchSize = 5;
+    const patients = [];
+
+    for (let i = 0; i < extractedContents.length; i += batchSize) {
+      const batch = extractedContents.slice(i, i + batchSize);
+      console.log(
+        `Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(extractedContents.length / batchSize)}...`,
+      );
+
+      const batchPromises = batch.map((item) =>
+        extractPatientData(item.content, item.url),
+      );
+
+      const batchResults = await Promise.all(batchPromises);
+      patients.push(...batchResults);
+    }
+
     console.log(`Extracted data for ${patients.length} patients`);
 
-    // Step 5: Calculate match scores
-    console.log('[Step 5/5] Calculating match scores...');
+    // Step 6: Calculate match scores
+    console.log('[Step 6/6] Calculating match scores...');
     const matches = patients
+      .filter((patient) => patient.conditions && patient.conditions.length > 0) // Only patients with conditions
       .map((patient) => {
         const match = calculateMatch(patient, criteria);
         return {
@@ -94,15 +189,16 @@ export async function POST(request: NextRequest) {
           criteriaBreakdown: match.breakdown,
         };
       })
+      .filter((match) => match.matchScore > 0) // Only matches with some score
       .sort((a, b) => b.matchScore - a.matchScore); // Sort by score descending
 
-    console.log(`Found ${matches.length} total matches`);
+    console.log(`Found ${matches.length} matches with scores > 0`);
     console.log('=== Search complete ===');
 
     return NextResponse.json({
       parsedCriteria: criteria,
       searchQueries,
-      totalResults: uniqueResults.length,
+      totalResults: likelyCampaigns.length,
       matches,
     });
   } catch (error: any) {
@@ -112,7 +208,7 @@ export async function POST(request: NextRequest) {
         error: error.message || 'Search failed',
         details: error.stack || 'No details available',
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

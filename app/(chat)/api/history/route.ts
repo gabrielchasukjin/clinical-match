@@ -23,6 +23,11 @@ export async function GET(request: NextRequest) {
     return new ChatSDKError('unauthorized:chat').toResponse();
   }
 
+  // Guest users don't have chat history (UUID validation)
+  if (session.user.id.startsWith('guest_')) {
+    return Response.json({ chats: [], hasMore: false });
+  }
+
   const chats = await getChatsByUserId({
     id: session.user.id,
     limit,
