@@ -23,31 +23,31 @@ function PureSuggestedActions({
 
   const suggestedActions = [
     {
-      title: 'Find patients with',
-      label: 'Type 2 Diabetes in Boston',
-      action: 'Find female patients over 50 with Type 2 Diabetes in Boston area',
+      title: '',
+      label: 'Patients with Type 2 Diabetes in Boston',
+      action: 'Find patients with Type 2 Diabetes in Boston',
     },
     {
-      title: 'Search for',
-      label: 'cancer patients needing treatment',
-      action: 'Search for breast cancer patients age 40-65 seeking fundraising help',
+      title: '',
+      label: 'Patients with heart disease in California',
+      action: 'Find patients with heart disease in California',
     },
     {
-      title: 'Look for patients with',
-      label: 'heart disease in California',
-      action: 'Look for male patients with heart disease or cardiovascular conditions in California',
+      title: '',
+      label: 'Stage 2 Cancer patients in New York',
+      action: 'Find Stage 2 Cancer patients in New York',
     },
     {
-      title: 'Find patients needing',
-      label: 'diabetes treatment funding',
-      action: 'Find patients with diabetes who need help funding their treatment',
+      title: '',
+      label: 'Patients with mental health in New York',
+      action: 'Find patients with mental health issues in New York',
     },
   ];
 
   return (
     <div
       data-testid="suggested-actions"
-      className="grid sm:grid-cols-2 gap-2 w-full"
+      className="grid sm:grid-cols-2 gap-3 w-full max-w-4xl mx-auto"
     >
       {suggestedActions.map((suggestedAction, index) => (
         <motion.div
@@ -56,18 +56,17 @@ function PureSuggestedActions({
           exit={{ opacity: 0, y: 20 }}
           transition={{ delay: 0.05 * index }}
           key={`suggested-action-${suggestedAction.title}-${index}`}
-          className={index > 1 ? 'hidden sm:block' : 'block'}
+          className="block"
         >
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             onClick={() => {
               router.push(`/trials/search?q=${encodeURIComponent(suggestedAction.action)}`);
             }}
-            className="text-left border rounded-xl px-4 py-3.5 text-sm flex-1 gap-1 sm:flex-col w-full h-auto justify-start items-start"
+            className="text-left border border-gray-200 rounded-lg px-5 py-4 text-base w-full h-auto justify-start items-start hover:border-blue-300 hover:bg-blue-50/50 transition-colors"
           >
-            <span className="font-medium">{suggestedAction.title}</span>
-            <span className="text-muted-foreground">
+            <span className="text-gray-700">
               {suggestedAction.label}
             </span>
           </Button>
