@@ -11,8 +11,16 @@ export const tavily = tavilyClient({
 // Crowdfunding platforms to search
 export const CROWDFUNDING_DOMAINS = [
   'gofundme.com',
-  'givesendgo.com',
   'fundly.com',
-  'giveforward.com',
+  'justgiving.com',
+  'fundrazr.com',
+  'mightycause.com',
+  'givebutter.com',
+  'spotfund.com',
+  'gogetfunding.com',
+  'givesendgo.com',
+  'donorbox.org',
+  'paypal.com',
+  'facebook.com',
   'plumfund.com',
 ];

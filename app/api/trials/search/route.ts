@@ -31,21 +31,30 @@ export async function POST(request: NextRequest) {
     console.log('[Step 1/6] Parsing criteria...');
     const criteria = await parseCriteria(trialDescription);
     console.log('Parsed criteria:', JSON.stringify(criteria, null, 2));
+    if (criteria.priorityOrder) {
+      console.log(
+        'Priority order (based on user input):',
+        criteria.priorityOrder,
+      );
+    }
 
     // Step 2: Generate search queries
     console.log('[Step 2/6] Generating search queries...');
     const searchQueries = await generateSearchQueries(criteria);
     console.log('Generated queries:', searchQueries);
 
-    // Step 3: Execute Tavily searches in parallel (GoFundMe only)
+    // Step 3: Execute Tavily searches in parallel (multiple crowdfunding sites)
     console.log('[Step 3/6] Searching with Tavily...');
     const searchPromises = searchQueries.map((query) =>
       tavily
-        .search(`${query} site:gofundme.com`, {
-          searchDepth: 'advanced',
-          maxResults: 10,
-          includeRawContent: 'text',
-        })
+        .search(
+          `${query} (gofundme OR fundly OR justgiving OR fundrazr OR givesendgo OR plumfund OR givebutter) medical fundraiser`,
+          {
+            searchDepth: 'advanced',
+            maxResults: 10,
+            includeRawContent: 'text', // Get full raw content including organizer info
+          },
+        )
         .catch((error) => {
           console.error(`Search failed for query "${query}":`, error);
           return { results: [] };
@@ -60,10 +69,11 @@ export async function POST(request: NextRequest) {
       new Map(allResults.map((r) => [r.url, r])).values(),
     );
 
-    // Filter for GoFundMe campaigns only
-    const gofundmeCampaigns = uniqueResults.filter((result) =>
-      result.url.toLowerCase().includes('gofundme.com'),
-    );
+    // Filter for crowdfunding campaigns from supported platforms
+    const crowdfundingCampaigns = uniqueResults.filter((result) => {
+      const url = result.url.toLowerCase();
+      return CROWDFUNDING_DOMAINS.some((domain) => url.includes(domain));
+    });
 
     // Filter out non-campaign pages (info pages, blogs, FAQs, sitemaps, etc.)
     const excludePatterns = [
@@ -90,19 +100,95 @@ export async function POST(request: NextRequest) {
       '/en-au',
       '/en-ca',
       '/en-ie',
+      'facebook.com/share',
+      'facebook.com/groups',
+      'facebook.com/pages',
     ];
 
-    const likelyCampaigns = gofundmeCampaigns.filter((result) => {
+    // Campaign URL patterns for different platforms
+    const isCampaignUrl = (url: string): boolean => {
+      const urlLower = url.toLowerCase();
+
+      // GoFundMe: must have /f/
+      if (urlLower.includes('gofundme.com') && urlLower.includes('/f/')) {
+        return true;
+      }
+
+      // Fundly: must have /campaign/ or /fundraiser/
+      if (
+        urlLower.includes('fundly.com') &&
+        (urlLower.includes('/campaign/') || urlLower.includes('/fundraiser/'))
+      ) {
+        return true;
+      }
+
+      // JustGiving: must have /fundraising/
+      if (
+        urlLower.includes('justgiving.com') &&
+        urlLower.includes('/fundraising/')
+      ) {
+        return true;
+      }
+
+      // FundRazr: must have /campaign/ or specific campaign pattern
+      if (urlLower.includes('fundrazr.com') && urlLower.includes('/campaign')) {
+        return true;
+      }
+
+      // GiveSendGo: must have /campaign/ or /gsg/
+      if (
+        urlLower.includes('givesendgo.com') &&
+        (urlLower.includes('/campaign/') || urlLower.includes('/gsg/'))
+      ) {
+        return true;
+      }
+
+      // Plumfund: must have /plum/
+      if (urlLower.includes('plumfund.com') && urlLower.includes('/plum/')) {
+        return true;
+      }
+
+      // Givebutter: must have campaign path
+      if (
+        urlLower.includes('givebutter.com') &&
+        urlLower.match(/\/[a-z0-9-]+$/)
+      ) {
+        return true;
+      }
+
+      // Facebook fundraisers: must have /donate/
+      if (urlLower.includes('facebook.com') && urlLower.includes('/donate/')) {
+        return true;
+      }
+
+      // For other platforms, accept if not in exclude patterns
+      if (
+        (urlLower.includes('mightycause.com') ||
+          urlLower.includes('spotfund.com') ||
+          urlLower.includes('gogetfunding.com') ||
+          urlLower.includes('donorbox.org') ||
+          urlLower.includes('paypal.com')) &&
+        !excludePatterns.some((pattern) => urlLower.includes(pattern))
+      ) {
+        return true;
+      }
+
+      return false;
+    };
+
+    const likelyCampaigns = crowdfundingCampaigns.filter((result) => {
       const url = result.url.toLowerCase();
-      // Must include /f/ (campaign pattern) and exclude problematic patterns
+      // Must be a campaign URL and not in exclude patterns
       return (
-        url.includes('/f/') &&
+        isCampaignUrl(url) &&
         !excludePatterns.some((pattern) => url.includes(pattern.toLowerCase()))
       );
     });
 
     console.log(`Found ${uniqueResults.length} unique results`);
-    console.log(`Filtered to ${gofundmeCampaigns.length} GoFundMe campaigns`);
+    console.log(
+      `Filtered to ${crowdfundingCampaigns.length} crowdfunding campaigns`,
+    );
     console.log(`Final count: ${likelyCampaigns.length} valid campaign pages`);
 
     if (likelyCampaigns.length === 0) {
@@ -112,49 +198,26 @@ export async function POST(request: NextRequest) {
         totalResults: 0,
         matches: [],
         message:
-          'No GoFundMe campaigns found. Try broadening your search criteria or using different condition names.',
+          'No crowdfunding campaigns found. Try broadening your search criteria or using different condition names.',
       });
     }
 
-    // Step 4: Extract clean content from URLs using Tavily Extract
-    console.log('[Step 4/6] Extracting content from campaign URLs...');
-    const urlsToProcess = likelyCampaigns.slice(0, 15).map((r) => r.url);
+    // Step 4: Use search content with raw content for organizer info
+    console.log('[Step 4/6] Preparing campaign content...');
+    const campaignsToProcess = likelyCampaigns.slice(0, 15);
 
-    // Use Tavily Extract to get clean content from URLs
-    let extractedContents: Array<{ url: string; content: string }> = [];
-    try {
-      const extractResponse = await tavily.extract(urlsToProcess, {
-        format: 'markdown',
-        extract_depth: 'advanced', // Use advanced for more complete extraction
-        timeout: 30, // 30 second timeout per URL
-      });
+    // Use rawContent which includes more complete page content
+    const extractedContents = campaignsToProcess.map((result) => ({
+      url: result.url,
+      content: result.rawContent || result.content || '',
+    }));
 
-      extractedContents = extractResponse.results.map((result: any) => ({
-        url: result.url,
-        content: result.raw_content || '',
-      }));
-
-      console.log(
-        `Successfully extracted content from ${extractedContents.length} URLs`,
-      );
-
-      // Log content lengths for debugging
-      const contentLengths = extractedContents.map((c) => ({
-        url: c.url.split('/').pop(),
-        length: c.content.length,
-      }));
-      console.log('Content lengths:', contentLengths);
-    } catch (error) {
-      console.error(
-        'Tavily Extract failed, falling back to search content:',
-        error,
-      );
-      // Fallback to original search content
-      extractedContents = likelyCampaigns.slice(0, 15).map((result) => ({
-        url: result.url,
-        content: result.content || result.rawContent || '',
-      }));
-    }
+    // Log content lengths for debugging
+    const contentLengths = extractedContents.map((c) => ({
+      url: c.url.split('/').pop(),
+      length: c.content.length,
+    }));
+    console.log('Content lengths from search:', contentLengths);
 
     // Step 5: Extract patient data from content
     console.log('[Step 5/6] Extracting patient data with AI...');
@@ -179,26 +242,58 @@ export async function POST(request: NextRequest) {
 
     // Step 6: Calculate match scores
     console.log('[Step 6/6] Calculating match scores...');
+
+    // Calculate first match to get weights for logging
+    let dynamicWeights:
+      | {
+          age: number;
+          gender: number;
+          conditions: number;
+          location: number;
+        }
+      | undefined;
+
+    // Show ALL patients, even without conditions (they'll just get lower scores)
     const matches = patients
-      .filter((patient) => patient.conditions && patient.conditions.length > 0) // Only patients with conditions
       .map((patient) => {
         const match = calculateMatch(patient, criteria);
+        if (!dynamicWeights) {
+          dynamicWeights = match.weights;
+        }
         return {
           patient,
           matchScore: match.score,
           criteriaBreakdown: match.breakdown,
         };
       })
-      .filter((match) => match.matchScore > 0) // Only matches with some score
       .sort((a, b) => b.matchScore - a.matchScore); // Sort by score descending
 
-    console.log(`Found ${matches.length} matches with scores > 0`);
+    console.log('Dynamic weights applied:', dynamicWeights);
+    console.log(`Total matches: ${matches.length}`);
+    console.log(
+      `Matches with conditions: ${matches.filter((m) => m.patient.conditions && m.patient.conditions.length > 0).length}`,
+    );
+    console.log(
+      `Matches with score > 0: ${matches.filter((m) => m.matchScore > 0).length}`,
+    );
+
+    // Debug: Log first few matches
+    if (matches.length > 0) {
+      console.log('Top 3 matches:');
+      matches.slice(0, 3).forEach((match, idx) => {
+        console.log(
+          `${idx + 1}. ${match.patient.name || 'Unknown'}: ${match.matchScore}%, conditions: ${match.patient.conditions?.length || 0}`,
+        );
+      });
+    }
+
     console.log('=== Search complete ===');
 
     return NextResponse.json({
       parsedCriteria: criteria,
       searchQueries,
       totalResults: likelyCampaigns.length,
+      dynamicWeights,
       matches,
     });
   } catch (error: any) {

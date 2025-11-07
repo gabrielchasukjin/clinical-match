@@ -3,11 +3,12 @@ import { generateObject } from 'ai';
 import { z } from 'zod';
 
 const patientSchema = z.object({
-  name: z.string().optional(),
+  name: z.string().nullish(),
+  organizerName: z.string().nullish(),
   age: z.number().nullish(),
-  gender: z.enum(['male', 'female', 'non-binary', 'unknown']).optional(),
-  conditions: z.array(z.string()).default([]),
-  location: z.string().optional(),
+  gender: z.enum(['male', 'female', 'non-binary', 'unknown']).nullish(),
+  conditions: z.array(z.string()).nullish(),
+  location: z.string().nullish(),
 });
 
 export type PatientData = z.infer<typeof patientSchema> & {
@@ -17,14 +18,18 @@ export type PatientData = z.infer<typeof patientSchema> & {
 
 export async function extractPatientData(
   campaignContent: string,
-  campaignUrl: string
+  campaignUrl: string,
 ): Promise<PatientData> {
   try {
     // Skip if content is empty or too short
-    if (!campaignContent || campaignContent.trim().length < 100) {
-      console.log(`Skipping extraction for ${campaignUrl} - content too short (${campaignContent?.length || 0} chars)`);
+    if (!campaignContent || campaignContent.trim().length < 50) {
+      console.log(
+        `Skipping extraction for ${campaignUrl} - content too short (${campaignContent?.length || 0} chars)`,
+      );
       return {
-        name: 'Unknown',
+        name: undefined,
+        organizerName: undefined,
+        age: undefined,
         gender: 'unknown',
         conditions: [],
         campaign_url: campaignUrl,
@@ -33,35 +38,85 @@ export async function extractPatientData(
     }
 
     // Limit content to avoid token limits
-    const truncatedContent = campaignContent.slice(0, 2000); // Reduced from 3000
+    // Take content from both start and end to capture organizer info
+    const contentLength = campaignContent.length;
+    let truncatedContent: string;
+    if (contentLength <= 3000) {
+      truncatedContent = campaignContent;
+    } else {
+      // Take first 2000 chars (main content) + last 1000 chars (organizer section)
+      truncatedContent = `${campaignContent.slice(0, 2000)}\n...\n${campaignContent.slice(-1000)}`;
+    }
 
     const { object } = await generateObject({
       model: anthropic('claude-3-5-haiku-20241022'),
       schema: patientSchema,
-      maxRetries: 1, // Reduce retries for faster failure
-      abortSignal: AbortSignal.timeout(10000), // 10 second timeout
-      prompt: `Extract patient information from this crowdfunding campaign content:
+      maxRetries: 2,
+      abortSignal: AbortSignal.timeout(15000), // 15 second timeout for complex extraction
+      prompt: `Extract patient information from this crowdfunding campaign:
 
 "${truncatedContent}"
 
-Extract:
-- name (first name or alias only for privacy, e.g., "Sarah" or "Sarah M.")
-- age (exact number if stated, or approximate if mentioned like "in her 50s" = 55)
-- gender (if clearly stated: "male", "female", "non-binary", or "unknown")
-- conditions (array of all medical conditions mentioned)
-- location (city/state if mentioned, e.g., "Boston, MA" or "California")
+Extract these fields:
+- name: patient's first name (if mentioned)
+- organizerName: if you see "Organizer:", "Created by", or "Fundraiser" followed by a name, extract it
+- age: number only if clearly stated
+- gender: "male", "female", "non-binary", or "unknown"
+- conditions: **IMPORTANT** - Extract ALL medical conditions, diseases, or health issues mentioned. Look for terms like: heart disease, diabetes, cancer, stroke, surgery needed, organ failure, etc. Return as array (e.g., ["heart disease"], ["Type 2 Diabetes", "High Blood Pressure"])
+- location: city/state if mentioned
 
-IMPORTANT:
-- Only include information that is EXPLICITLY stated in the content
-- For conditions, include the specific medical terms used (e.g., "Type 2 Diabetes", "breast cancer", "heart disease")
-- If something is not clear or not mentioned, use optional fields or "unknown"
-- Be conservative - don't infer or guess
+RULES:
+1. **ALWAYS extract conditions** - this is the most important field
+2. If you find any health-related words, include them in conditions
+3. Default gender to "unknown" if not stated
+4. All fields except conditions are optional
 
-Return valid JSON only.`,
+Return JSON with the fields you found.`,
     });
 
+    // Normalize the extracted data - filter out invalid values
+    const cleanName =
+      object.name &&
+      object.name.toLowerCase() !== 'null' &&
+      object.name.toLowerCase() !== 'unknown'
+        ? object.name
+        : undefined;
+
+    const cleanOrganizerName =
+      object.organizerName &&
+      object.organizerName.toLowerCase() !== 'null' &&
+      object.organizerName.toLowerCase() !== 'unknown'
+        ? object.organizerName
+        : undefined;
+
+    const cleanLocation =
+      object.location &&
+      object.location.toLowerCase() !== 'null' &&
+      object.location.toLowerCase() !== 'unknown' &&
+      object.location !== '<UNKNOWN>'
+        ? object.location
+        : undefined;
+
+    const cleanGender =
+      object.gender && object.gender.toLowerCase() !== 'null'
+        ? object.gender
+        : 'unknown';
+
+    const cleanConditions =
+      object.conditions && Array.isArray(object.conditions)
+        ? object.conditions.filter(
+            (c) =>
+              c && c.toLowerCase() !== 'null' && c.toLowerCase() !== 'unknown',
+          )
+        : [];
+
     return {
-      ...object,
+      name: cleanName,
+      organizerName: cleanOrganizerName,
+      age: object.age || undefined,
+      gender: cleanGender,
+      conditions: cleanConditions,
+      location: cleanLocation,
       campaign_url: campaignUrl,
       raw_description: campaignContent.slice(0, 500),
     };
@@ -70,10 +125,19 @@ Return valid JSON only.`,
       error: error.message,
       statusCode: error.statusCode,
       responseBody: error.responseBody,
+      cause: error.cause?.message,
     });
+
+    // Log the actual response if available for debugging
+    if (error.text) {
+      console.log('AI Response text:', error.text.substring(0, 500));
+    }
+
     // Return minimal data if extraction fails
     return {
-      name: 'Unknown',
+      name: undefined,
+      organizerName: undefined,
+      age: undefined,
       gender: 'unknown',
       conditions: [],
       campaign_url: campaignUrl,
