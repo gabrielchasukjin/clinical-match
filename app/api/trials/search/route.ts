@@ -5,6 +5,8 @@ import { generateSearchQueries } from '@/lib/matching/generate-queries';
 import { extractPatientData } from '@/lib/matching/extract-patient';
 import { calculateMatch } from '@/lib/matching/calculate-match';
 import { tavily, CROWDFUNDING_DOMAINS } from '@/lib/tavily/client';
+import { db } from '@/lib/db';
+import { trialSearchSession, trialSearchResult } from '@/lib/db/schema';
 
 export const maxDuration = 60; // Can take up to 60 seconds
 
@@ -221,6 +223,54 @@ export async function POST(request: NextRequest) {
 
         console.log('=== Search complete ===');
         console.log(`Total matches: ${matches.length}`);
+
+        // Save search session and results to database
+        try {
+          sendUpdate(encoder, controller, {
+            type: 'status',
+            step: 6,
+            message: 'Saving results to database...',
+          });
+
+          console.log('[Step 6/6] Saving to database...');
+
+          // Insert search session
+          const [searchSession] = await db
+            .insert(trialSearchSession)
+            .values({
+              user_id: session.user.id!,
+              search_query: trialDescription,
+              parsed_criteria: criteria,
+              search_queries: searchQueries,
+              total_results: likelyCampaigns.length,
+              match_count: matches.length,
+            })
+            .returning();
+
+          console.log(`Created search session: ${searchSession.id}`);
+
+          // Insert all match results
+          if (matches.length > 0) {
+            const matchRecords = matches.map((match) => ({
+              session_id: searchSession.id,
+              patient_name: match.patient.name || null,
+              organizer_name: match.patient.organizerName || null,
+              patient_age: match.patient.age || null,
+              patient_gender: match.patient.gender || null,
+              patient_conditions: match.patient.conditions || [],
+              patient_location: match.patient.location || null,
+              campaign_url: match.patient.campaign_url,
+              match_score: match.matchScore,
+              criteria_breakdown: match.criteriaBreakdown,
+            }));
+
+            await db.insert(trialSearchResult).values(matchRecords);
+            console.log(`Saved ${matchRecords.length} match results`);
+          }
+        } catch (dbError: any) {
+          console.error('Failed to save to database:', dbError);
+          // Don't fail the entire request if DB save fails
+        }
 
         // Send final results
         sendUpdate(encoder, controller, {

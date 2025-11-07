@@ -204,3 +204,47 @@ export const clinicalTrials = pgTable('ClinicalTrial', {
 });
 
 export type ClinicalTrial = InferSelectModel<typeof clinicalTrials>;
+
+export const trialSearchSession = pgTable('TrialSearchSession', {
+  id: uuid('id').primaryKey().notNull().defaultRandom(),
+  user_id: uuid('user_id')
+    .notNull()
+    .references(() => user.id),
+  search_query: text('search_query').notNull(),
+  parsed_criteria: json('parsed_criteria').$type<{
+    age?: { min?: number; max?: number };
+    gender?: string[];
+    conditions?: string[];
+    location?: string;
+  }>().notNull(),
+  search_queries: json('search_queries').$type<string[]>().notNull(),
+  total_results: integer('total_results').notNull().default(0),
+  match_count: integer('match_count').notNull().default(0),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
+export type TrialSearchSession = InferSelectModel<typeof trialSearchSession>;
+
+export const trialSearchResult = pgTable('TrialSearchResult', {
+  id: uuid('id').primaryKey().notNull().defaultRandom(),
+  session_id: uuid('session_id')
+    .notNull()
+    .references(() => trialSearchSession.id),
+  patient_name: varchar('patient_name', { length: 255 }),
+  organizer_name: varchar('organizer_name', { length: 255 }),
+  patient_age: integer('patient_age'),
+  patient_gender: varchar('patient_gender', { length: 50 }),
+  patient_conditions: json('patient_conditions').$type<string[]>().notNull(),
+  patient_location: text('patient_location'),
+  campaign_url: text('campaign_url').notNull(),
+  match_score: integer('match_score').notNull(),
+  criteria_breakdown: json('criteria_breakdown').$type<{
+    age?: boolean;
+    gender?: boolean;
+    conditions?: boolean;
+    location?: boolean;
+  }>().notNull(),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
+export type TrialSearchResult = InferSelectModel<typeof trialSearchResult>;
