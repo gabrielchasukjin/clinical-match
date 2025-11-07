@@ -290,7 +290,7 @@ function PureMultimodalInput({
         <Textarea
           data-testid="multimodal-input"
           ref={textareaRef}
-          placeholder="Find anything..."
+          placeholder=""
           value={input}
           onChange={handleInput}
           className={cx(
