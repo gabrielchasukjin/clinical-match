@@ -31,8 +31,8 @@ function PureSuggestedActions({
     },
     {
       title: '',
-      label: 'Type 2 Diabetes patients age 18-70 in California',
-      action: 'Find Type 2 Diabetes patients age 18-70 in California',
+      label: 'Type 2 Diabetes patients in California',
+      action: 'Find Type 2 Diabetes patients in California',
     },
     {
       title: '',
