@@ -15,7 +15,7 @@ export async function generateSearchQueries(
   const { object } = await generateObject({
     model: bedrock(BEDROCK_MODEL_ID),
     schema: queriesSchema,
-    prompt: `Generate 4-6 search queries to find patients on crowdfunding platforms (GoFundMe, GiveSendGo, etc.) who match these clinical trial criteria:
+    prompt: `Generate exactly 3 search queries to find patients on crowdfunding platforms (GoFundMe, GiveSendGo, etc.) who match these clinical trial criteria:
 
 ${JSON.stringify(criteria, null, 2)}
 
@@ -28,7 +28,7 @@ Each query should:
 
 Return ONLY valid JSON matching this EXACT schema:
 {
-  "queries": ["query1", "query2", "query3", "query4"]
+  "queries": ["query1", "query2", "query3"]
 }
 
 CRITICAL:

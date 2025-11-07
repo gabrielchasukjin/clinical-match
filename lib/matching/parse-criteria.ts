@@ -23,7 +23,9 @@ export type TrialCriteria = z.infer<typeof criteriaSchema>;
 export async function parseCriteria(
   trialDescription: string,
 ): Promise<TrialCriteria> {
-  const BEDROCK_MODEL_ID = process.env.BEDROCK_MODEL_ID || 'global.anthropic.claude-sonnet-4-5-20250929-v1:0';
+  const BEDROCK_MODEL_ID =
+    process.env.BEDROCK_MODEL_ID ||
+    'global.anthropic.claude-sonnet-4-5-20250929-v1:0';
 
   const { object } = await generateObject({
     model: bedrock(BEDROCK_MODEL_ID),
@@ -32,7 +34,9 @@ export async function parseCriteria(
 
 "${trialDescription}"
 
-Return JSON matching this EXACT schema:
+RETURN ONLY VALID JSON. NO EXPLANATIONS. NO MARKDOWN. NO REASONING.
+
+JSON schema:
 {
   "age": { "min": <number>, "max": <number> },  // optional
   "gender": ["male" | "female" | "non-binary"],  // MUST be an ARRAY, e.g., ["male"] or ["female", "male"]

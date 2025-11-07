@@ -48,7 +48,9 @@ export async function extractPatientData(
 
 "${campaignContent}"
 
-Extract and return ONLY valid JSON matching this schema:
+RETURN ONLY VALID JSON. NO EXPLANATIONS. NO MARKDOWN. NO REASONING. JUST THE JSON OBJECT.
+
+JSON schema:
 {
   "name": "string or omit",
   "organizerName": "string or omit",
