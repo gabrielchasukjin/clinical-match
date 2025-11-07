@@ -6,6 +6,80 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 
+// Component to display conditions with matching conditions first and expand/collapse functionality
+function ConditionsCell({
+  conditions,
+  requestedConditions,
+  hasMatch
+}: {
+  conditions: string[];
+  requestedConditions: string[];
+  hasMatch?: boolean;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  if (!conditions || conditions.length === 0) {
+    return <span>-</span>;
+  }
+
+  // Sort conditions: matching ones first, then others
+  const sortedConditions = [...conditions].sort((a, b) => {
+    const aMatches = requestedConditions.some(req =>
+      a.toLowerCase().includes(req.toLowerCase()) || req.toLowerCase().includes(a.toLowerCase())
+    );
+    const bMatches = requestedConditions.some(req =>
+      b.toLowerCase().includes(req.toLowerCase()) || req.toLowerCase().includes(b.toLowerCase())
+    );
+
+    if (aMatches && !bMatches) return -1;
+    if (!aMatches && bMatches) return 1;
+    return 0;
+  });
+
+  const displayLimit = 2;
+  const hasMore = sortedConditions.length > displayLimit;
+  const displayConditions = isExpanded ? sortedConditions : sortedConditions.slice(0, displayLimit);
+
+  return (
+    <div className="flex items-start gap-2">
+      <div className="flex-1 min-w-0">
+        {displayConditions.map((condition, idx) => {
+          const isMatching = requestedConditions.some(req =>
+            condition.toLowerCase().includes(req.toLowerCase()) || req.toLowerCase().includes(condition.toLowerCase())
+          );
+
+          return (
+            <div key={idx} className="flex items-center gap-1 mb-1">
+              <span
+                className={`inline-block px-2 py-0.5 rounded text-xs ${
+                  isMatching
+                    ? 'bg-blue-100 text-blue-800 font-semibold'
+                    : 'bg-gray-100 text-gray-700'
+                }`}
+              >
+                {condition}
+              </span>
+            </div>
+          );
+        })}
+        {hasMore && (
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="text-xs text-blue-600 hover:text-blue-700 font-medium mt-1"
+          >
+            {isExpanded ? '- Show less' : `+ ${sortedConditions.length - displayLimit} more`}
+          </button>
+        )}
+      </div>
+      {hasMatch !== undefined && (
+        <span className={hasMatch ? 'text-green-600 text-sm' : 'text-red-600 text-sm'}>
+          {hasMatch ? '✓' : '✗'}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function TrialSearchPage() {
   const searchParams = useSearchParams();
   const queryParam = searchParams.get('q');
@@ -507,16 +581,11 @@ export default function TrialSearchPage() {
                                 </span>
                               </td>
                               <td className="px-4 py-2 text-sm text-gray-600">
-                                <span className="flex items-center gap-1">
-                                  <span className="max-w-xs truncate">
-                                    {match.patient.conditions?.join(', ') || '-'}
-                                  </span>
-                                  {match.criteriaBreakdown?.conditions !== undefined && (
-                                    <span className={match.criteriaBreakdown.conditions ? 'text-green-600' : 'text-red-600'}>
-                                      {match.criteriaBreakdown.conditions ? '✓' : '✗'}
-                                    </span>
-                                  )}
-                                </span>
+                                <ConditionsCell
+                                  conditions={match.patient.conditions || []}
+                                  requestedConditions={parsedCriteria?.conditions || []}
+                                  hasMatch={match.criteriaBreakdown?.conditions}
+                                />
                               </td>
                               <td className="px-4 py-2 text-sm text-gray-600">
                                 <span className="flex items-center gap-1">
