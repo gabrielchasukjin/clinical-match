@@ -138,9 +138,11 @@ export function calculateMatch(
 
   // Conditions check
   if (criteria.conditions && patient.conditions && patient.conditions.length > 0) {
+    // Extract to const to preserve type narrowing in nested callbacks
+    const patientConditions = patient.conditions;
     const hasMatchingCondition = criteria.conditions.some((requiredCondition) => {
       const requiredLower = requiredCondition.toLowerCase().trim();
-      return patient.conditions.some((patientCondition) => {
+      return patientConditions.some((patientCondition) => {
         const patientLower = patientCondition.toLowerCase().trim();
         // Check both ways: patient condition includes required OR required includes patient condition
         return (
@@ -149,7 +151,7 @@ export function calculateMatch(
         );
       });
     });
-    
+
     if (hasMatchingCondition) {
       score += weights.conditions;
       breakdown.conditions = true;
