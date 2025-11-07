@@ -534,7 +534,6 @@ export default function TrialSearchPage() {
                             <th className="text-left px-4 py-2 text-sm font-semibold text-gray-700">Gender</th>
                             <th className="text-left px-4 py-2 text-sm font-semibold text-gray-700">Conditions</th>
                             <th className="text-left px-4 py-2 text-sm font-semibold text-gray-700">Location</th>
-                            <th className="text-left px-4 py-2 text-sm font-semibold text-gray-700">Organizer</th>
                             <th className="text-left px-4 py-2 text-sm font-semibold text-gray-700">Match</th>
                             <th className="text-left px-4 py-2 text-sm font-semibold text-gray-700">URL</th>
                           </tr>
@@ -554,10 +553,10 @@ export default function TrialSearchPage() {
                                     rel="noopener noreferrer"
                                     className="text-blue-600 hover:text-blue-700 hover:underline"
                                   >
-                                    {match.patient.name || 'Unknown'}
+                                    {match.patient.name || match.patient.organizerName || 'Unknown'}
                                   </a>
                                 ) : (
-                                  <span>{match.patient.name || 'Unknown'}</span>
+                                  <span>{match.patient.name || match.patient.organizerName || 'Unknown'}</span>
                                 )}
                               </td>
                               <td className="px-4 py-2 text-sm text-gray-600">
@@ -596,9 +595,6 @@ export default function TrialSearchPage() {
                                     </span>
                                   )}
                                 </span>
-                              </td>
-                              <td className="px-4 py-2 text-sm text-gray-600">
-                                {match.patient.organizerName || '-'}
                               </td>
                               <td className="px-4 py-2">
                                 <span className="text-sm font-semibold text-gray-900">
