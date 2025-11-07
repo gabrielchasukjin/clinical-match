@@ -462,7 +462,18 @@ export default function TrialSearchPage() {
                             >
                               <td className="px-4 py-2 text-sm text-gray-500">{idx + 1}</td>
                               <td className="px-4 py-2 text-sm font-medium text-gray-900">
-                                {match.patient.name || 'Unknown'}
+                                {match.patient.campaign_url?.includes('gofundme.com') ? (
+                                  <a
+                                    href={`${match.patient.campaign_url}?modal=contact`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:text-blue-700 hover:underline"
+                                  >
+                                    {match.patient.name || 'Unknown'}
+                                  </a>
+                                ) : (
+                                  <span>{match.patient.name || 'Unknown'}</span>
+                                )}
                               </td>
                               <td className="px-4 py-2 text-sm text-gray-600">
                                 <span className="flex items-center gap-1">
