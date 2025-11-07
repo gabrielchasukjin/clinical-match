@@ -29,14 +29,24 @@ export async function parseCriteria(
 
 "${trialDescription}"
 
-Return structured JSON with:
-- age range (min/max)
-- gender requirements
-- medical conditions
-- location preferences
-- exclusion criteria
+Return JSON matching this EXACT schema:
+{
+  "age": { "min": <number>, "max": <number> },  // optional
+  "gender": ["male" | "female" | "non-binary"],  // MUST be an ARRAY, e.g., ["male"] or ["female", "male"]
+  "conditions": ["condition1", "condition2"],     // array of strings
+  "location": "City, State" OR "State",           // MUST be a flat string, NOT an object
+  "exclusions": ["exclusion1", "exclusion2"]      // array of strings
+}
 
-Only include fields that are explicitly mentioned. Be conservative and accurate.`,
+IMPORTANT:
+- gender MUST be an array: ["male"] NOT "male"
+- location MUST be a string: "California" NOT {"state": "California"}
+- Only include fields that are explicitly mentioned
+- Be conservative and accurate
+
+Examples:
+✓ {"gender": ["male"], "location": "California"}
+✗ {"gender": "male", "location": {"state": "California"}}`,
   });
 
   return object;
