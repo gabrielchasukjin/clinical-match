@@ -37,27 +37,16 @@ export async function extractPatientData(
       };
     }
 
-    // Limit content to avoid token limits - only truncate if absolutely necessary
-    // Most GoFundMe campaigns are 5,000-15,000 chars, we can handle up to ~20,000
-    const contentLength = campaignContent.length;
-    let truncatedContent: string;
-    if (contentLength <= 20000) {
-      // Use full content for most campaigns
-      truncatedContent = campaignContent;
-    } else {
-      // Only truncate very long campaigns
-      // Take first 12000 chars (main content + full story) + last 3000 chars (organizer section)
-      truncatedContent = `${campaignContent.slice(0, 12000)}\n...\n${campaignContent.slice(-3000)}`;
-    }
-
+    // Use full content - no truncation
+    // Claude Sonnet 4 has a 200k token context window, can handle long campaigns
     const { object } = await generateObject({
       model: anthropic('claude-sonnet-4-20250514'),
       schema: patientSchema,
       maxRetries: 2,
-      abortSignal: AbortSignal.timeout(15000), // 15 second timeout for complex extraction
+      abortSignal: AbortSignal.timeout(30000), // 30 second timeout for longer content extraction
       prompt: `Extract patient and campaign organizer information from this crowdfunding campaign:
 
-"${truncatedContent}"
+"${campaignContent}"
 
 Extract and return ONLY valid JSON matching this schema:
 {
