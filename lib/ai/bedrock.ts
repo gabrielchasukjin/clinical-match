@@ -66,6 +66,16 @@ async function withRetries<T>(fn: () => Promise<T>) {
 }
 
 /** ----------------------------------------------------------------
+ * Text cleanup helpers
+ * ----------------------------------------------------------------*/
+function stripMarkdownCodeFences(text: string): string {
+  // Remove markdown code fences like ```json\n...\n``` or ```\n...\n```
+  const fencePattern = /^```(?:json|typescript|javascript|python|)?\s*\n?([\s\S]*?)\n?```$/;
+  const match = text.trim().match(fencePattern);
+  return match ? match[1].trim() : text;
+}
+
+/** ----------------------------------------------------------------
  * Prompt conversion helpers
  * ----------------------------------------------------------------*/
 type BRMessage = {
@@ -162,7 +172,9 @@ async function converseGenerate(opts: {
 
   try {
     const res = await withRetries(() => opts.client.send(cmd));
-    const text = res.output?.message?.content?.[0]?.text ?? '';
+    const rawText = res.output?.message?.content?.[0]?.text ?? '';
+    // Strip markdown code fences that Sonnet 4.5 likes to add around JSON
+    const text = stripMarkdownCodeFences(rawText);
     const stopReason = res.stopReason ?? 'end_turn';
 
     return {
@@ -241,7 +253,9 @@ async function legacyGenerate(opts: {
 
   const res = await withRetries(() => opts.client.send(cmd));
   const json = JSON.parse(new TextDecoder().decode(res.body));
-  const text: string = json?.completion ?? '';
+  const rawText: string = json?.completion ?? '';
+  // Strip markdown code fences if present
+  const text = stripMarkdownCodeFences(rawText);
   const stopReason = 'end_turn';
 
   return { text, stopReason, inputTokens: 0, outputTokens: 0 };
