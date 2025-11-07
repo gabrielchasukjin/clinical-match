@@ -1,6 +1,6 @@
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { bedrock } from '@/lib/ai/bedrock';
+import { anthropic } from '@ai-sdk/anthropic';
 
 const patientSchema = z.object({
   name: z.string().nullish(),
@@ -48,10 +48,8 @@ export async function extractPatientData(
       truncatedContent = `${campaignContent.slice(0, 3000)}\n...\n${campaignContent.slice(-1000)}`;
     }
 
-    const BEDROCK_MODEL_ID = process.env.BEDROCK_MODEL_ID || 'global.anthropic.claude-sonnet-4-5-20250929-v1:0';
-
     const { object } = await generateObject({
-      model: bedrock(BEDROCK_MODEL_ID),
+      model: anthropic('claude-sonnet-4-20250514'),
       schema: patientSchema,
       maxRetries: 2,
       abortSignal: AbortSignal.timeout(15000), // 15 second timeout for complex extraction

@@ -16,6 +16,12 @@ export default function TrialSearchPage() {
   const [error, setError] = useState<string | null>(null);
   const hasSearchedRef = useRef(false);
 
+  // Progress tracking state
+  const [progressStatus, setProgressStatus] = useState<string>('');
+  const [progressStep, setProgressStep] = useState(0);
+  const [extractingProgress, setExtractingProgress] = useState<{current: number, total: number} | null>(null);
+  const [streamingResults, setStreamingResults] = useState<any[]>([]);
+
   // Contact modal state
   const [contactModal, setContactModal] = useState<{
     isOpen: boolean;
@@ -34,6 +40,10 @@ export default function TrialSearchPage() {
     setLoading(true);
     setResults(null);
     setError(null);
+    setProgressStatus('Starting search...');
+    setProgressStep(0);
+    setExtractingProgress(null);
+    setStreamingResults([]);
 
     try {
       const response = await fetch('/api/trials/search', {
@@ -47,12 +57,47 @@ export default function TrialSearchPage() {
         throw new Error(errorData.error || 'Search failed');
       }
 
-      const data = await response.json();
-      setResults(data);
+      // Handle Server-Sent Events stream
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error('No response body');
+      }
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = JSON.parse(line.slice(6));
+
+            if (data.type === 'status') {
+              setProgressStatus(data.message);
+              setProgressStep(data.step);
+            } else if (data.type === 'extracting') {
+              setExtractingProgress({ current: data.current, total: data.total });
+              setProgressStatus(`Extracting patient data (${data.current}/${data.total}): ${data.url}`);
+            } else if (data.type === 'patient_extracted') {
+              // Add the newly extracted patient to streaming results
+              setStreamingResults((prev) => [...prev, data.data]);
+            } else if (data.type === 'complete') {
+              setResults(data.data);
+              setLoading(false);
+            } else if (data.type === 'error') {
+              setError(data.message);
+              setLoading(false);
+            }
+          }
+        }
+      }
     } catch (err: any) {
       console.error('Search error:', err);
       setError(err.message || 'Search failed. Please try again.');
-    } finally {
       setLoading(false);
     }
   }, []);
@@ -138,34 +183,171 @@ export default function TrialSearchPage() {
               <div className="border bg-card p-8">
                 <div className="text-center">
                   <div className="text-2xl mb-4">🔍</div>
-                  <p className="text-lg font-medium">
-                    Searching crowdfunding platforms...
+                  <p className="text-lg font-medium mb-2">
+                    {progressStatus || 'Starting search...'}
                   </p>
-                  <p className="text-sm text-muted-foreground mt-2">
+
+                  {/* Step progress indicators */}
+                  <div className="mt-6 flex justify-center gap-3">
+                    {[
+                      { num: 1, label: 'Parse' },
+                      { num: 2, label: 'Query' },
+                      { num: 3, label: 'Search' },
+                      { num: 4, label: 'Extract' },
+                      { num: 5, label: 'Match' },
+                    ].map((step) => (
+                      <div key={step.num} className="flex flex-col items-center">
+                        <div
+                          className={`w-12 h-12 rounded-full flex items-center justify-center font-bold transition-all ${
+                            step.num < progressStep
+                              ? 'bg-green-600 text-white'
+                              : step.num === progressStep
+                                ? 'bg-blue-600 text-white animate-pulse'
+                                : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                          }`}
+                        >
+                          {step.num < progressStep ? '✓' : step.num}
+                        </div>
+                        <span className="text-xs mt-1 text-muted-foreground">
+                          {step.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Campaign extraction progress bar */}
+                  {extractingProgress && (
+                    <div className="mt-8">
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                        <div
+                          className="bg-blue-600 h-3 transition-all duration-300 ease-out"
+                          style={{
+                            width: `${(extractingProgress.current / extractingProgress.total) * 100}%`,
+                          }}
+                        />
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-3">
+                        Processing campaign {extractingProgress.current} of{' '}
+                        {extractingProgress.total}
+                      </p>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-muted-foreground mt-6">
                     This may take 10-30 seconds
                   </p>
-                  <div className="mt-6 text-sm text-muted-foreground space-y-2">
-                    <p className="flex items-center justify-center gap-2">
-                      <span className="text-green-600">✓</span> Parsing your
-                      criteria with AI...
-                    </p>
-                    <p className="flex items-center justify-center gap-2">
-                      <span className="text-green-600">✓</span> Generating
-                      optimized search queries...
-                    </p>
-                    <p className="flex items-center justify-center gap-2">
-                      <span className="text-green-600">✓</span> Searching
-                      GoFundMe, GiveSendGo, and other platforms...
-                    </p>
-                    <p className="flex items-center justify-center gap-2">
-                      <span className="text-green-600">✓</span> Extracting
-                      patient data...
-                    </p>
-                    <p className="flex items-center justify-center gap-2">
-                      <span className="text-green-600">✓</span> Calculating
-                      match scores...
-                    </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Streaming Results - Show as they come in */}
+          {streamingResults.length > 0 && loading && (
+            <motion.div
+              key="streaming-results"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="mx-auto w-full md:max-w-5xl"
+            >
+              <div className="border bg-card p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold">
+                    Found {streamingResults.length} Patient{streamingResults.length !== 1 ? 's' : ''}
+                  </h2>
+                  <div className="text-sm text-muted-foreground animate-pulse">
+                    ● Live Results
                   </div>
+                </div>
+
+                <div className="space-y-3">
+                  <AnimatePresence>
+                    {streamingResults.map((match, idx) => (
+                      <motion.div
+                        key={idx}
+                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ duration: 0.3 }}
+                        className="border rounded-lg p-4 bg-muted/30 hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          {/* Patient Info */}
+                          <div className="flex-1 space-y-2">
+                            <div className="flex items-center gap-3">
+                              <h3 className="font-semibold text-lg">
+                                {match.patient.name || 'Anonymous Patient'}
+                              </h3>
+                              <span
+                                className={`px-3 py-1 rounded-full text-sm font-bold ${
+                                  match.matchScore >= 80
+                                    ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                                    : match.matchScore >= 50
+                                      ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300'
+                                      : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                                }`}
+                              >
+                                {match.matchScore}% Match
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                              <div>
+                                <span className="text-muted-foreground">Age:</span>{' '}
+                                <span className="font-medium">
+                                  {match.patient.age || '—'}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">Gender:</span>{' '}
+                                <span className="font-medium capitalize">
+                                  {match.patient.gender && match.patient.gender !== 'unknown'
+                                    ? match.patient.gender
+                                    : '—'}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">Location:</span>{' '}
+                                <span className="font-medium">
+                                  {match.patient.location || '—'}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">Organizer:</span>{' '}
+                                <span className="font-medium">
+                                  {match.patient.organizerName || '—'}
+                                </span>
+                              </div>
+                            </div>
+
+                            {match.patient.conditions && match.patient.conditions.length > 0 && (
+                              <div>
+                                <span className="text-muted-foreground text-sm">Conditions:</span>
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                  {match.patient.conditions.map((condition: string, i: number) => (
+                                    <span
+                                      key={i}
+                                      className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded text-xs"
+                                    >
+                                      {condition}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Campaign Link */}
+                          <a
+                            href={match.patient.campaign_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline font-medium text-sm whitespace-nowrap"
+                          >
+                            View Campaign →
+                          </a>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
                 </div>
               </div>
             </motion.div>
