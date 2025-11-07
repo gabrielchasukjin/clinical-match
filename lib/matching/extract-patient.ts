@@ -33,7 +33,7 @@ export async function extractPatientData(
     }
 
     // Limit content to avoid token limits
-    const truncatedContent = campaignContent.slice(0, 2000); // Reduced from 3000
+    const truncatedContent = campaignContent.slice(0, 4000); // Increased to capture more content
 
     const BEDROCK_MODEL_ID = process.env.BEDROCK_MODEL_ID || 'global.anthropic.claude-sonnet-4-5-20250929-v1:0';
 
@@ -59,16 +59,26 @@ Field requirements:
 - name: first name or alias only (e.g., "Sarah" or "Sarah M.")
 - age: exact number if stated, approximate if mentioned (e.g., "in her 50s" = 55)
 - gender: MUST be one of: "male", "female", "non-binary", or "unknown"
-- conditions: array of medical conditions mentioned
+- conditions: array of medical conditions or health issues mentioned
+  * Include both medical terms AND casual descriptions
+  * Examples: "cancer", "battling cancer", "heart disease", "heart problems", "diabetes", "kidney failure", "stroke"
+  * Include ANY health-related reason for fundraising
 - location: flat string like "Boston, MA" or "California"
 
-CRITICAL:
+CRITICAL EXTRACTION RULES:
 - Return ONLY the JSON object, NO explanatory text
-- Only include information EXPLICITLY stated in content
-- Be conservative - don't infer or guess
-- If unclear, use "unknown" or omit the field
+- For CONDITIONS: Be generous - extract ANY medical or health-related terms mentioned
+- For other fields: Only extract what is clearly stated
+- GoFundMe campaigns often use casual language - extract those too
+- If you see phrases like "fighting", "battling", "diagnosed with", "suffering from" - extract the condition
 
-Example: {"name": "John", "age": 45, "gender": "male", "conditions": ["heart disease"], "location": "California"}`,
+Examples:
+✓ "battling cancer" → ["cancer"]
+✓ "heart problems" → ["heart disease"]
+✓ "diagnosed with Type 2 Diabetes" → ["Type 2 Diabetes"]
+✓ "kidney failure treatment" → ["kidney failure"]
+
+Example output: {"name": "John", "age": 45, "gender": "male", "conditions": ["heart disease"], "location": "California"}`,
     });
 
     return {
