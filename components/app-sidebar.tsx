@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 import { PlusIcon } from '@/components/icons';
 import { SidebarHistory } from '@/components/sidebar-history';
+import { SidebarTrialHistory } from '@/components/sidebar-trial-history';
 import { SidebarUserNav } from '@/components/sidebar-user-nav';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,6 +14,7 @@ import {
   SidebarFooter,
   SidebarHeader,
   SidebarMenu,
+  SidebarSeparator,
   useSidebar,
 } from '@/components/ui/sidebar';
 import Link from 'next/link';
@@ -89,6 +91,8 @@ export function AppSidebar({ user }: { user: User | undefined }) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
+        <SidebarTrialHistory user={user} />
+        <SidebarSeparator className="my-4" />
         <SidebarHistory user={user} />
       </SidebarContent>
       <SidebarFooter>{user && <SidebarUserNav user={user} />}</SidebarFooter>
