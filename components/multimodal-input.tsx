@@ -90,7 +90,9 @@ function PureMultimodalInput({
     if (textareaRef.current) {
       const domValue = textareaRef.current.value;
       // Prefer DOM value over localStorage to handle hydration
-      const finalValue = domValue || localStorageInput || '';
+      // Filter out placeholder text from localStorage
+      const storedValue = localStorageInput === 'your-secure-password-here' ? '' : localStorageInput;
+      const finalValue = domValue || storedValue || '';
       setInput(finalValue);
       adjustHeight();
     }
