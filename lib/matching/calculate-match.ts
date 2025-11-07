@@ -162,10 +162,86 @@ export function calculateMatch(
 
   // Location check
   if (criteria.location && patient.location) {
-    const locationMatch = patient.location
-      .toLowerCase()
-      .trim()
-      .includes(criteria.location.toLowerCase().trim());
+    const criteriaLoc = criteria.location.toLowerCase().trim();
+    const patientLoc = patient.location.toLowerCase().trim();
+
+    // Check for direct substring match first
+    let locationMatch = patientLoc.includes(criteriaLoc);
+
+    // If no direct match, check for state abbreviation matching
+    if (!locationMatch) {
+      // Map common state names to abbreviations
+      const stateMap: Record<string, string[]> = {
+        'new york': ['ny', 'n.y.'],
+        'california': ['ca', 'calif'],
+        'texas': ['tx'],
+        'florida': ['fl', 'fla'],
+        'pennsylvania': ['pa'],
+        'illinois': ['il'],
+        'ohio': ['oh'],
+        'georgia': ['ga'],
+        'north carolina': ['nc', 'n.c.'],
+        'michigan': ['mi'],
+        'new jersey': ['nj', 'n.j.'],
+        'virginia': ['va'],
+        'washington': ['wa'],
+        'arizona': ['az'],
+        'massachusetts': ['ma', 'mass'],
+        'tennessee': ['tn'],
+        'indiana': ['in'],
+        'missouri': ['mo'],
+        'maryland': ['md'],
+        'wisconsin': ['wi'],
+        'colorado': ['co'],
+        'minnesota': ['mn'],
+        'south carolina': ['sc', 's.c.'],
+        'alabama': ['al'],
+        'louisiana': ['la'],
+        'kentucky': ['ky'],
+        'oregon': ['or'],
+        'oklahoma': ['ok'],
+        'connecticut': ['ct'],
+        'utah': ['ut'],
+        'iowa': ['ia'],
+        'nevada': ['nv'],
+        'arkansas': ['ar'],
+        'mississippi': ['ms'],
+        'kansas': ['ks'],
+        'new mexico': ['nm', 'n.m.'],
+        'nebraska': ['ne'],
+        'west virginia': ['wv', 'w.v.'],
+        'idaho': ['id'],
+        'hawaii': ['hi'],
+        'new hampshire': ['nh', 'n.h.'],
+        'maine': ['me'],
+        'rhode island': ['ri', 'r.i.'],
+        'montana': ['mt'],
+        'delaware': ['de'],
+        'south dakota': ['sd', 's.d.'],
+        'north dakota': ['nd', 'n.d.'],
+        'alaska': ['ak'],
+        'vermont': ['vt'],
+        'wyoming': ['wy'],
+      };
+
+      // Check if criteria is a state name and patient location ends with its abbreviation
+      for (const [stateName, abbreviations] of Object.entries(stateMap)) {
+        if (criteriaLoc === stateName) {
+          // Check if patient location ends with any abbreviation of this state
+          locationMatch = abbreviations.some(abbr =>
+            patientLoc.endsWith(abbr) || patientLoc.endsWith(abbr + '.')
+          );
+          if (locationMatch) break;
+        }
+
+        // Also check reverse: if criteria is abbreviation and patient has full state name
+        if (abbreviations.includes(criteriaLoc)) {
+          locationMatch = patientLoc.includes(stateName);
+          if (locationMatch) break;
+        }
+      }
+    }
+
     if (locationMatch) {
       score += weights.location;
       breakdown.location = true;
