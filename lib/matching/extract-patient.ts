@@ -46,20 +46,29 @@ export async function extractPatientData(
 
 "${truncatedContent}"
 
-Extract:
-- name (first name or alias only for privacy, e.g., "Sarah" or "Sarah M.")
-- age (exact number if stated, or approximate if mentioned like "in her 50s" = 55)
-- gender (if clearly stated: "male", "female", "non-binary", or "unknown")
-- conditions (array of all medical conditions mentioned)
-- location (city/state if mentioned, e.g., "Boston, MA" or "California")
+Extract and return ONLY valid JSON matching this schema:
+{
+  "name": "string or omit",
+  "age": number or null,
+  "gender": "male" | "female" | "non-binary" | "unknown",
+  "conditions": ["condition1", "condition2"],
+  "location": "City, State" or omit
+}
 
-IMPORTANT:
-- Only include information that is EXPLICITLY stated in the content
-- For conditions, include the specific medical terms used (e.g., "Type 2 Diabetes", "breast cancer", "heart disease")
-- If something is not clear or not mentioned, use optional fields or "unknown"
+Field requirements:
+- name: first name or alias only (e.g., "Sarah" or "Sarah M.")
+- age: exact number if stated, approximate if mentioned (e.g., "in her 50s" = 55)
+- gender: MUST be one of: "male", "female", "non-binary", or "unknown"
+- conditions: array of medical conditions mentioned
+- location: flat string like "Boston, MA" or "California"
+
+CRITICAL:
+- Return ONLY the JSON object, NO explanatory text
+- Only include information EXPLICITLY stated in content
 - Be conservative - don't infer or guess
+- If unclear, use "unknown" or omit the field
 
-Return valid JSON only.`,
+Example: {"name": "John", "age": 45, "gender": "male", "conditions": ["heart disease"], "location": "California"}`,
     });
 
     return {
