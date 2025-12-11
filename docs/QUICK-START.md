@@ -30,7 +30,7 @@ https://platform.openai.com/
 ### 1. Install Dependencies
 
 ```bash
-cd /Users/gabrielcha/Desktop/bedrock/clinical-match
+cd clinical-match
 
 # Install Tavily SDK
 npm install @tavily/core
