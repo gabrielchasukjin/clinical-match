@@ -1,6 +1,6 @@
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { bedrock } from '@/lib/ai/bedrock';
+import { anthropic } from '@ai-sdk/anthropic';
 
 const criteriaSchema = z.object({
   age: z
@@ -23,12 +23,8 @@ export type TrialCriteria = z.infer<typeof criteriaSchema>;
 export async function parseCriteria(
   trialDescription: string,
 ): Promise<TrialCriteria> {
-  const BEDROCK_MODEL_ID =
-    process.env.BEDROCK_MODEL_ID ||
-    'global.anthropic.claude-sonnet-4-5-20250929-v1:0';
-
   const { object } = await generateObject({
-    model: bedrock(BEDROCK_MODEL_ID),
+    model: anthropic('claude-3-5-haiku-20241022'),
     schema: criteriaSchema,
     prompt: `Extract clinical trial eligibility criteria from this description:
 

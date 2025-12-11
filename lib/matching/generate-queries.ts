@@ -1,6 +1,6 @@
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { bedrock } from '@/lib/ai/bedrock';
+import { anthropic } from '@ai-sdk/anthropic';
 import type { TrialCriteria } from './parse-criteria';
 
 const queriesSchema = z.object({
@@ -10,10 +10,8 @@ const queriesSchema = z.object({
 export async function generateSearchQueries(
   criteria: TrialCriteria
 ): Promise<string[]> {
-  const BEDROCK_MODEL_ID = process.env.BEDROCK_MODEL_ID || 'global.anthropic.claude-sonnet-4-5-20250929-v1:0';
-
   const { object } = await generateObject({
-    model: bedrock(BEDROCK_MODEL_ID),
+    model: anthropic('claude-3-5-haiku-20241022'),
     schema: queriesSchema,
     prompt: `Generate exactly 3 search queries to find patients on crowdfunding platforms (GoFundMe, GiveSendGo, etc.) who match these clinical trial criteria:
 
