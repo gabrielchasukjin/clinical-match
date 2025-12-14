@@ -35,7 +35,7 @@ RETURN ONLY VALID JSON. NO EXPLANATIONS. NO MARKDOWN. NO REASONING.
 JSON schema:
 {
   "age": { "min": <number>, "max": <number> },  // optional
-  "gender": ["male" | "female" | "non-binary"],  // MUST be an ARRAY, e.g., ["male"] or ["female", "male"]
+  "gender": ["male" | "female" | "non-binary"],  // OPTIONAL, only when there is an explicit gender restriction
   "conditions": ["condition1", "condition2"],     // array of strings
   "location": "City, State" OR "State",           // MUST be a flat string, NOT an object
   "exclusions": ["exclusion1", "exclusion2"],     // array of strings
@@ -43,20 +43,29 @@ JSON schema:
 }
 
 IMPORTANT RULES:
-- gender MUST be an array: ["male"] NOT "male"
-- location MUST be a string: "California" NOT {"state": "California"}
-- Only include fields that are explicitly mentioned
-- Be conservative and accurate
+- Only include fields that are explicitly mentioned as *restrictions*.
+- GENDER:
+  * If the text does NOT explicitly restrict gender (e.g. "women only", "male patients", "no men"),
+    then DO NOT include a gender field at all.
+  * Do NOT infer gender from disease, location, or typical population.
+  * Do NOT default to ["male", "female", "non-binary"]. If there is no restriction, omit "gender".
+- AGE:
+  * Only fill "age" if there is an explicit age range or minimum/maximum.
+- LOCATION:
+  * location MUST be a string: "California" NOT {"state": "California"}.
+- CONDITIONS:
+  * Include the main disease/condition(s) explicitly mentioned.
+- Be conservative and accurate.
 
-For priorityOrder - CRITICAL:
-1. If medical conditions/diseases are mentioned, "conditions" MUST be first in the priority order
-2. After conditions (if present), list other criteria in the order they appear in the text
-3. Only include criteria that are explicitly mentioned
-4. This determines matching weight distribution
+PriorityOrder rules:
+1. If medical conditions/diseases are mentioned, "conditions" MUST be first in the priority order.
+2. After conditions (if present), list other criteria in the order they appear in the text.
+3. Only include criteria that are explicitly mentioned.
 
 Examples:
 ✓ {"gender": ["male"], "location": "California"}
-✗ {"gender": "male", "location": {"state": "California"}}
+✓ {"location": "California", "conditions": ["Type 2 Diabetes"]}
+✗ {"gender": ["male", "female", "non-binary"]}   // INVALID unless the text literally says this list
 
 Priority order examples:
 - "diabetes patient in Boston" → priorityOrder: ["conditions", "location"]
@@ -65,5 +74,22 @@ Priority order examples:
 - "patients in New York with cancer" → priorityOrder: ["conditions", "location"]`,
   });
 
-  return object;
+  // ---- NORMALIZE GENDER: "all genders" = no restriction ----
+  const normalized: TrialCriteria = { ...object };
+
+  if (!normalized.gender || normalized.gender.length === 0) {
+    // No explicit gender restriction
+    delete normalized.gender;
+  } else {
+    const set = new Set(normalized.gender);
+    const all = ['male', 'female', 'non-binary'] as const;
+    const hasAll = all.every((g) => set.has(g));
+
+    // If all three are present, treat it as no restriction
+    if (hasAll) {
+      delete normalized.gender;
+    }
+  }
+
+  return normalized;
 }

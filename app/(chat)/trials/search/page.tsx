@@ -92,6 +92,13 @@ export default function TrialSearchPage() {
   const [sortBy, setSortBy] = useState<'match' | 'name' | 'age'>('match');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterMatch, setFilterMatch] = useState<'all' | 'high' | 'low'>('all');
+  const [genderFilter, setGenderFilter] = useState<
+    'all' | 'male' | 'female' | 'non-binary' | 'unknown'
+  >('all');
+  const [ageFilter, setAgeFilter] = useState<
+    'all' | '0-17' | '18-34' | '35-49' | '50-64' | '65+'
+  >('all');
+
   const hasSearchedRef = useRef(false);
 
   // Progress tracking state (from master)
@@ -195,11 +202,35 @@ export default function TrialSearchPage() {
     const matches = results?.matches || [];
     let filtered = [...matches];
 
-    // Apply filter
+    // Apply match score filter
     if (filterMatch === 'high') {
       filtered = filtered.filter((match: any) => match.matchScore >= 50);
     } else if (filterMatch === 'low') {
       filtered = filtered.filter((match: any) => match.matchScore < 50);
+    }
+
+    // Apply gender filter
+    if (genderFilter !== 'all') {
+      filtered = filtered.filter((match: any) => {
+        const g = (match.patient.gender || 'unknown') as string;
+        return g === genderFilter;
+      });
+    }
+
+    // Apply age filter
+    if (ageFilter !== 'all') {
+      filtered = filtered.filter((match: any) => {
+        const age = match.patient.age as number | undefined;
+        if (age == null) return false; // exclude unknown age when a filter is applied
+
+        if (ageFilter === '0-17')   return age >= 0  && age <= 17;
+        if (ageFilter === '18-34')  return age >= 18 && age <= 34;
+        if (ageFilter === '35-49')  return age >= 35 && age <= 49;
+        if (ageFilter === '50-64')  return age >= 50 && age <= 64;
+        if (ageFilter === '65+')    return age >= 65;
+
+        return true;
+      });
     }
 
     // Apply sort
@@ -226,6 +257,7 @@ export default function TrialSearchPage() {
 
     return filtered;
   };
+
 
   function exportToExcel() {
     const filteredMatches = getFilteredAndSortedMatches();
@@ -273,16 +305,15 @@ export default function TrialSearchPage() {
         <div className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => router.push('/')}
-                className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m12 19-7-7 7-7"/>
-                  <path d="M19 12H5"/>
+              <button className="flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-200 rounded hover:bg-gray-50">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
-                Home
+                Filter {(filterMatch !== 'all' || genderFilter !== 'all' || ageFilter !== 'all') && (
+                  <span className="ml-1 text-xs bg-blue-500 text-white rounded-full px-1.5">1</span>
+                )}
               </button>
+
               <h1 className="text-lg font-semibold">
                 {description || 'Search Results'}
               </h1>
@@ -310,29 +341,135 @@ export default function TrialSearchPage() {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                   </svg>
-                  Filter {filterMatch !== 'all' && <span className="ml-1 text-xs bg-blue-500 text-white rounded-full px-1.5">1</span>}
+                  Filter {(filterMatch !== 'all' || genderFilter !== 'all' || ageFilter !== 'all') && (
+                    <span className="ml-1 text-xs bg-blue-500 text-white rounded-full px-1.5">1</span>
+                  )}
                 </button>
                 <div className="hidden group-hover:block absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-10 min-w-[160px]">
                   <div className="p-2">
                     <p className="text-xs font-semibold text-gray-700 px-2 py-1">Match Score</p>
                     <button
                       onClick={() => setFilterMatch('all')}
-                      className={`w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-50 ${filterMatch === 'all' ? 'bg-blue-50 text-blue-700' : ''}`}
+                      className={`w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-50 ${
+                        filterMatch === 'all' ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
                     >
                       All
                     </button>
                     <button
                       onClick={() => setFilterMatch('high')}
-                      className={`w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-50 ${filterMatch === 'high' ? 'bg-blue-50 text-blue-700' : ''}`}
+                      className={`w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-50 ${
+                        filterMatch === 'high' ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
                     >
                       High Only (50%+)
                     </button>
                     <button
                       onClick={() => setFilterMatch('low')}
-                      className={`w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-50 ${filterMatch === 'low' ? 'bg-blue-50 text-blue-700' : ''}`}
+                      className={`w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-50 ${
+                        filterMatch === 'low' ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
                     >
                       Low Only (&lt;50%)
                     </button>
+
+                    {/* NEW: Gender section */}
+                    <p className="text-xs font-semibold text-gray-700 px-2 py-1 mt-2 border-t border-gray-100">
+                      Gender
+                    </p>
+                    <button
+                      onClick={() => setGenderFilter('all')}
+                      className={`w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-50 ${
+                        genderFilter === 'all' ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
+                    >
+                      All
+                    </button>
+                    <button
+                      onClick={() => setGenderFilter('male')}
+                      className={`w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-50 ${
+                        genderFilter === 'male' ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
+                    >
+                      Male
+                    </button>
+                    <button
+                      onClick={() => setGenderFilter('female')}
+                      className={`w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-50 ${
+                        genderFilter === 'female' ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
+                    >
+                      Female
+                    </button>
+                    <button
+                      onClick={() => setGenderFilter('non-binary')}
+                      className={`w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-50 ${
+                        genderFilter === 'non-binary' ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
+                    >
+                      Non-binary
+                    </button>
+                    <button
+                      onClick={() => setGenderFilter('unknown')}
+                      className={`w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-50 ${
+                        genderFilter === 'unknown' ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
+                    >
+                      Unknown
+                    </button>
+                                        {/* NEW: Age section */}
+                    <p className="text-xs font-semibold text-gray-700 px-2 py-1 mt-2 border-t border-gray-100">
+                      Age
+                    </p>
+                    <button
+                      onClick={() => setAgeFilter('all')}
+                      className={`w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-50 ${
+                        ageFilter === 'all' ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
+                    >
+                      All
+                    </button>
+                    <button
+                      onClick={() => setAgeFilter('0-17')}
+                      className={`w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-50 ${
+                        ageFilter === '0-17' ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
+                    >
+                      0–17
+                    </button>
+                    <button
+                      onClick={() => setAgeFilter('18-34')}
+                      className={`w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-50 ${
+                        ageFilter === '18-34' ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
+                    >
+                      18–34
+                    </button>
+                    <button
+                      onClick={() => setAgeFilter('35-49')}
+                      className={`w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-50 ${
+                        ageFilter === '35-49' ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
+                    >
+                      35–49
+                    </button>
+                    <button
+                      onClick={() => setAgeFilter('50-64')}
+                      className={`w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-50 ${
+                        ageFilter === '50-64' ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
+                    >
+                      50–64
+                    </button>
+                    <button
+                      onClick={() => setAgeFilter('65+')}
+                      className={`w-full text-left px-3 py-1.5 text-sm rounded hover:bg-gray-50 ${
+                        ageFilter === '65+' ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
+                    >
+                      65+
+                    </button>
+
                   </div>
                 </div>
               </div>
