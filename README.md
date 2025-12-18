@@ -222,20 +222,6 @@ pnpm test             # Run Playwright tests
    pnpm db:migrate
    ```
 
-## 💰 Cost Estimates
-
-### Per Search Session
-- **Tavily Search API**: $0.02-0.03 (4-6 queries)
-- **Claude 3.5 Haiku**: $0.002 (criteria parsing + query generation)
-- **Claude Sonnet 4**: $0.15-0.35 (10-15 patient extractions)
-- **Total**: ~$0.18-0.39 per search
-
-### Monthly Costs (Estimated)
-- **API Usage**: $20-50 (depends on search volume)
-- **Vercel Hosting**: $20/month (Pro plan recommended)
-- **Database**: $0-25/month (Neon free tier available)
-- **Total**: ~$40-95/month
-
 ## 🔍 How It Works
 
 1. **Criteria Parsing**: LLM (Claude 3.5 Haiku) converts natural language trial description into structured criteria
@@ -245,16 +231,6 @@ pnpm test             # Run Playwright tests
 5. **Patient Extraction**: LLM (Claude Sonnet 4) extracts structured patient data from campaign content
 6. **Match Scoring**: Dynamic weighted algorithm calculates match scores (0-100%)
 7. **Results Display**: Patients are ranked by match score and displayed in a sortable table
-
-## 📊 System Architecture
-
-The system follows a serverless architecture:
-
-- **Frontend**: Next.js App Router with React Server Components
-- **API Routes**: Serverless functions on Vercel
-- **Database**: PostgreSQL (Neon) for search history only
-- **External APIs**: Tavily (search), Anthropic (LLM processing)
-- **Authentication**: NextAuth.js with database sessions
 
 ## 🧪 Testing
 
@@ -268,55 +244,3 @@ pnpm test tests/e2e/chat.test.ts
 # Run tests in UI mode
 pnpm test --ui
 ```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'Add amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
-
-## 📝 License
-
-[Add your license here]
-
-## 🆘 Troubleshooting
-
-### Common Issues
-
-**"TAVILY_API_KEY is required"**
-- Ensure `.env.local` exists and contains `TAVILY_API_KEY`
-- Restart the dev server after adding environment variables
-
-**"POSTGRES_URL is required"**
-- Check your database connection string
-- Ensure the database is accessible
-- Run `pnpm db:migrate` to ensure schema is set up
-
-**No search results found**
-- Try broader search criteria (remove location, widen age range)
-- Check Tavily API key is valid and has credits
-- Verify network connectivity
-
-**LLM extraction errors**
-- Check Anthropic API key is valid
-- Ensure you have sufficient API credits
-- Check API rate limits
-
-**Database connection errors**
-- Verify `POSTGRES_URL` is correct
-- Check database is running and accessible
-- Ensure database schema is migrated: `pnpm db:migrate`
-
-## 📚 Additional Documentation
-
-- [Architecture Overview](docs/ARCHITECTURE.md)
-- [Implementation Guide](docs/IMPLEMENTATION.md)
-- [Quick Start Guide](docs/QUICK-START.md)
-
-## 🙏 Acknowledgments
-
-- Built with [Next.js](https://nextjs.org/) and [Vercel AI SDK](https://sdk.vercel.ai/)
-- Uses [Anthropic Claude](https://www.anthropic.com/) for LLM processing
-- Powered by [Tavily Search API](https://tavily.com/) for real-time web search
